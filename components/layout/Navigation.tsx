@@ -29,6 +29,13 @@ export default function Navigation() {
       </Link>
 
       <Link
+        href="/voice"
+        className="hover:text-cyan-100 transition"
+      >
+        VOICE
+      </Link>
+
+      <Link
         href="/memory"
         className="hover:text-cyan-100 transition"
       >
@@ -79,4 +86,3 @@ export default function Navigation() {
     </nav>
   );
 }
-
