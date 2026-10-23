@@ -1,12 +1,24 @@
 "use client";
 
+import { useState } from "react";
+
 export default function CommandCenter() {
-  const actions = [
-    "Synth Core Initialized",
-    "Memory Engine Active",
-    "Revenue Monitor Running",
-    "ShopMAD Connected",
-  ];
+  const [directive, setDirective] =
+    useState("");
+
+  const [history, setHistory] =
+    useState<string[]>([]);
+
+  function executeDirective() {
+    if (!directive.trim()) return;
+
+    setHistory((prev) => [
+      `DIRECTIVE: ${directive}`,
+      ...prev,
+    ]);
+
+    setDirective("");
+  }
 
   const notifications = [
     "No critical alerts",
@@ -43,7 +55,7 @@ export default function CommandCenter() {
         gap-6
         "
       >
-        {/* Synth Console */}
+        {/* Directive Input */}
 
         <div
           className="
@@ -63,20 +75,19 @@ export default function CommandCenter() {
             SYNTH CORE
           </h3>
 
-          <div
-            className="
-            text-cyan-500
-            text-sm
-            "
-          >
-            Ready for directives.
-          </div>
-
           <input
+            value={directive}
+            onChange={(e) =>
+              setDirective(e.target.value)
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                executeDirective();
+              }
+            }}
             placeholder="Enter directive..."
             className="
             w-full
-            mt-4
             p-3
             bg-black
             border
@@ -85,9 +96,24 @@ export default function CommandCenter() {
             text-cyan-300
             "
           />
+
+          <button
+            onClick={executeDirective}
+            className="
+            mt-3
+            w-full
+            py-3
+            bg-cyan-500
+            text-black
+            font-bold
+            rounded-lg
+            "
+          >
+            EXECUTE
+          </button>
         </div>
 
-        {/* Recent Activity */}
+        {/* Directive History */}
 
         <div
           className="
@@ -104,22 +130,28 @@ export default function CommandCenter() {
             mb-3
             "
           >
-            RECENT ACTIVITY
+            RECENT DIRECTIVES
           </h3>
 
           <div className="space-y-2">
-            {actions.map((item) => (
-              <div
-                key={item}
-                className="text-cyan-500"
-              >
-                • {item}
+            {history.length === 0 ? (
+              <div className="text-cyan-600">
+                No directives executed
               </div>
-            ))}
+            ) : (
+              history.map((item, index) => (
+                <div
+                  key={index}
+                  className="text-cyan-400"
+                >
+                  {item}
+                </div>
+              ))
+            )}
           </div>
         </div>
 
-        {/* Notifications */}
+        {/* Alerts */}
 
         <div
           className="
