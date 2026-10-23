@@ -1,14 +1,25 @@
 import Header from "@/components/layout/Header";
-import SyntheticOperator from "@/components/operator/SyntheticOperator";
+import SynthConsole from "@/components/synth/SynthConsole";
 
-export default function Home() {
+export default function SynthPage() {
   return (
     <>
       <Header />
 
-      <main className="min-h-screen bg-black text-cyan-300">
-        <SyntheticOperator />
+      <main className="p-8">
+        <h1
+          className="
+          text-4xl
+          font-bold
+          mb-8
+          "
+        >
+          SYNTH CORE
+        </h1>
+
+        <SynthConsole />
       </main>
     </>
   );
 }
+
