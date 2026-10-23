@@ -1,7 +1,24 @@
+import Header from "@/components/layout/Header";
+import RevenueDashboard from "@/components/revenue/RevenueDashboard";
+
 export default function RevenuePage() {
   return (
-    <div className="p-10">
-      REVENUE INTELLIGENCE
-    </div>
+    <>
+      <Header />
+
+      <main className="p-8">
+        <h1
+          className="
+          text-4xl
+          font-bold
+          mb-8
+          "
+        >
+          REVENUE INTELLIGENCE
+        </h1>
+
+        <RevenueDashboard />
+      </main>
+    </>
   );
 }
