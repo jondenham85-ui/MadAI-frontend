@@ -1,7 +1,24 @@
+import Header from "@/components/layout/Header";
+import MemoryDashboard from "@/components/memory/MemoryDashboard";
+
 export default function MemoryPage() {
   return (
-    <div className="p-10">
-      MEMORY ENGINE
-    </div>
+    <>
+      <Header />
+
+      <main className="p-8">
+        <h1
+          className="
+          text-4xl
+          font-bold
+          mb-8
+          "
+        >
+          MEMORY ENGINE
+        </h1>
+
+        <MemoryDashboard />
+      </main>
+    </>
   );
 }
