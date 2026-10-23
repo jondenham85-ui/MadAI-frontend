@@ -1,6 +1,9 @@
 import NeuralGrid from "./NeuralGrid";
 import SystemPulse from "./SystemPulse";
 import DirectivePanel from "./DirectivePanel";
+import MemorySnapshot from "./MemorySnapshot";
+import QuickStats from "./QuickStats";
+import CommandCenter from "./CommandCenter";
 
 export default function HolographicOperator() {
   return (
@@ -144,6 +147,46 @@ export default function HolographicOperator() {
       >
         <DirectivePanel />
       </div>
+
+      {/* Quick Statistics */}
+
+      <div
+        className="
+        w-full
+        max-w-5xl
+        mt-6
+        z-10
+        "
+      >
+        <QuickStats />
+      </div>
+
+      {/* Memory Snapshot */}
+
+      <div
+        className="
+        w-full
+        max-w-5xl
+        mt-6
+        z-10
+        "
+      >
+        <MemorySnapshot />
+      </div>
+
+      {/* Command Center */}
+
+      <div
+        className="
+        w-full
+        max-w-6xl
+        mt-6
+        z-10
+        "
+      >
+        <CommandCenter />
+      </div>
     </div>
   );
 }
+
