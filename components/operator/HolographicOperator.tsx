@@ -1,4 +1,5 @@
-"use client";
+import NeuralGrid from "./NeuralGrid";
+import SystemPulse from "./SystemPulse";
 
 export default function HolographicOperator() {
   return (
@@ -10,8 +11,11 @@ export default function HolographicOperator() {
       items-center
       justify-center
       py-20
+      overflow-hidden
       "
     >
+      <NeuralGrid />
+
       {/* Outer Ring */}
 
       <div
@@ -65,11 +69,7 @@ export default function HolographicOperator() {
         animate-pulse
         "
       >
-        <div
-          className="
-          text-center
-          "
-        >
+        <div className="text-center">
           <h2
             className="
             text-3xl
@@ -112,6 +112,12 @@ export default function HolographicOperator() {
         <div className="text-cyan-600 text-sm mt-1">
           Memory • Planning • Operations
         </div>
+      </div>
+
+      {/* Heartbeat */}
+
+      <div className="mt-6 w-full max-w-md">
+        <SystemPulse />
       </div>
     </div>
   );
