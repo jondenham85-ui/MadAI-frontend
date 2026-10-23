@@ -1,5 +1,6 @@
 import NeuralGrid from "./NeuralGrid";
 import SystemPulse from "./SystemPulse";
+import DirectivePanel from "./DirectivePanel";
 
 export default function HolographicOperator() {
   return (
@@ -12,6 +13,7 @@ export default function HolographicOperator() {
       justify-center
       py-20
       overflow-hidden
+      px-6
       "
     >
       <NeuralGrid />
@@ -67,6 +69,7 @@ export default function HolographicOperator() {
         border-cyan-300
         shadow-[0_0_100px_#00ffff]
         animate-pulse
+        z-10
         "
       >
         <div className="text-center">
@@ -92,7 +95,7 @@ export default function HolographicOperator() {
         </div>
       </div>
 
-      {/* Status Panel */}
+      {/* Status */}
 
       <div
         className="
@@ -103,6 +106,8 @@ export default function HolographicOperator() {
         px-6
         py-4
         bg-black/50
+        backdrop-blur-sm
+        z-10
         "
       >
         <div className="text-cyan-400">
@@ -110,14 +115,34 @@ export default function HolographicOperator() {
         </div>
 
         <div className="text-cyan-600 text-sm mt-1">
-          Memory • Planning • Operations
+          Memory • Planning • Operations • Revenue
         </div>
       </div>
 
       {/* Heartbeat */}
 
-      <div className="mt-6 w-full max-w-md">
+      <div
+        className="
+        mt-6
+        w-full
+        max-w-md
+        z-10
+        "
+      >
         <SystemPulse />
+      </div>
+
+      {/* Active Directive */}
+
+      <div
+        className="
+        mt-6
+        w-full
+        max-w-3xl
+        z-10
+        "
+      >
+        <DirectivePanel />
       </div>
     </div>
   );
