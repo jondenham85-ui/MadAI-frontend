@@ -1,9 +1,14 @@
 import NeuralGrid from "./NeuralGrid";
 import SystemPulse from "./SystemPulse";
 import DirectivePanel from "./DirectivePanel";
-import MemorySnapshot from "./MemorySnapshot";
 import QuickStats from "./QuickStats";
+import MemorySnapshot from "./MemorySnapshot";
 import CommandCenter from "./CommandCenter";
+import NotificationCenter from "./NotificationCenter";
+import ActivityFeed from "./ActivityFeed";
+import SystemMetrics from "./SystemMetrics";
+import OperatorStatus from "./OperatorStatus";
+import QuickActions from "./QuickActions";
 
 export default function HolographicOperator() {
   return (
@@ -98,7 +103,7 @@ export default function HolographicOperator() {
         </div>
       </div>
 
-      {/* Status */}
+      {/* System Status */}
 
       <div
         className="
@@ -135,7 +140,7 @@ export default function HolographicOperator() {
         <SystemPulse />
       </div>
 
-      {/* Active Directive */}
+      {/* Directive Panel */}
 
       <div
         className="
@@ -148,13 +153,13 @@ export default function HolographicOperator() {
         <DirectivePanel />
       </div>
 
-      {/* Quick Statistics */}
+      {/* Quick Stats */}
 
       <div
         className="
+        mt-6
         w-full
         max-w-5xl
-        mt-6
         z-10
         "
       >
@@ -165,9 +170,9 @@ export default function HolographicOperator() {
 
       <div
         className="
+        mt-6
         w-full
         max-w-5xl
-        mt-6
         z-10
         "
       >
@@ -178,15 +183,81 @@ export default function HolographicOperator() {
 
       <div
         className="
+        mt-6
         w-full
         max-w-6xl
-        mt-6
         z-10
         "
       >
         <CommandCenter />
       </div>
+
+      {/* Notifications */}
+
+      <div
+        className="
+        mt-6
+        w-full
+        max-w-6xl
+        z-10
+        "
+      >
+        <NotificationCenter />
+      </div>
+
+      {/* Activity Feed */}
+
+      <div
+        className="
+        mt-6
+        w-full
+        max-w-6xl
+        z-10
+        "
+      >
+        <ActivityFeed />
+      </div>
+
+      {/* System Metrics */}
+
+      <div
+        className="
+        mt-6
+        w-full
+        max-w-6xl
+        z-10
+        "
+      >
+        <SystemMetrics />
+      </div>
+
+      {/* Operator Status */}
+
+      <div
+        className="
+        mt-6
+        w-full
+        max-w-6xl
+        z-10
+        "
+      >
+        <OperatorStatus />
+      </div>
+
+      {/* Quick Actions */}
+
+      <div
+        className="
+        mt-6
+        w-full
+        max-w-6xl
+        z-10
+        "
+      >
+        <QuickActions />
+      </div>
     </div>
   );
 }
+
 
