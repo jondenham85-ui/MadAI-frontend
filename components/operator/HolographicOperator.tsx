@@ -9,6 +9,9 @@ import ActivityFeed from "./ActivityFeed";
 import SystemMetrics from "./SystemMetrics";
 import OperatorStatus from "./OperatorStatus";
 import QuickActions from "./QuickActions";
+import AIStatusBar from "./AIStatusBar";
+import WelcomePanel from "./WelcomePanel";
+import ModuleGrid from "./ModuleGrid";
 
 export default function HolographicOperator() {
   return (
@@ -25,6 +28,32 @@ export default function HolographicOperator() {
       "
     >
       <NeuralGrid />
+
+      {/* Welcome Panel */}
+
+      <div
+        className="
+        w-full
+        max-w-6xl
+        mb-10
+        z-10
+        "
+      >
+        <WelcomePanel />
+      </div>
+
+      {/* AI Status */}
+
+      <div
+        className="
+        w-full
+        max-w-6xl
+        mb-6
+        z-10
+        "
+      >
+        <AIStatusBar />
+      </div>
 
       {/* Outer Ring */}
 
@@ -256,8 +285,20 @@ export default function HolographicOperator() {
       >
         <QuickActions />
       </div>
+
+      {/* Module Grid */}
+
+      <div
+        className="
+        mt-6
+        w-full
+        max-w-6xl
+        z-10
+        "
+      >
+        <ModuleGrid />
+      </div>
     </div>
   );
 }
-
 
