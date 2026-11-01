@@ -1,31 +1,57 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { getCurrentUser } from "@/services/auth";
 
-const UserContext =
-  createContext<any>(null);
+type User = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-export function UserProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [user, setUser] =
-    useState(null);
+type UserContextValue = {
+  user: User | null;
+  setUser: (user: User | null) => void;
+  loading: boolean;
+};
+
+const UserContext = createContext<UserContextValue | null>(null);
+
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function restoreSession() {
+      try {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser ?? null);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    restoreSession();
+  }, []);
 
   return (
-    <UserContext.Provider
-      value={{ user, setUser }}
-    >
+    <UserContext.Provider value={{ user, setUser, loading }}>
       {children}
     </UserContext.Provider>
   );
 }
 
 export function useUser() {
-  return useContext(UserContext);
+  const context = useContext(UserContext);
+
+  if (!context) {
+    throw new Error("useUser must be used inside UserProvider");
+  }
+
+  return context;
 }
