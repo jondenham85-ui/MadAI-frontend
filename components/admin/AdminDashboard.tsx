@@ -6,7 +6,7 @@ type CurrentUser = {
 };
 
 const OWNER_EMAIL = (
-  process.env.NEXT_PUBLIC_OWNER_EMAIL || "jonathan.denham@gmail.com"
+  process.env.NEXT_PUBLIC_OWNER_EMAIL || "jondenham85@gmail.com"
 ).toLowerCase();
 
 export default function AdminDashboard({
@@ -76,7 +76,7 @@ export default function AdminDashboard({
 
         {isOwner && (
           <div className="mt-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-            Owner access granted to Jonathan Denham.
+            Owner access granted to jondenham85@gmail.com.
           </div>
         )}
       </div>
