@@ -1,85 +1,92 @@
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://madai-backend-clean.onrender.com";
 
-export async function login(
-  email: string,
-  password: string
-) {
-  const response = await fetch(
-    `${API_URL}/api/auth/login`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    }
-  );
+async function parseJson(response: Response) {
+  const text = await response.text();
 
-  if (!response.ok) {
-    throw new Error("Login failed");
+  if (!text) {
+    return {};
   }
 
-  return response.json();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
 }
 
-export async function signup(
-  name: string,
-  email: string,
-  password: string
-) {
-  const response = await fetch(
-    `${API_URL}/api/auth/signup`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-      }),
-    }
-  );
+export async function login(email: string, password: string) {
+  const response = await fetch(`${API_URL}/api/auth/login`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: email.trim(),
+      password,
+    }),
+  });
+
+  const payload = await parseJson(response);
 
   if (!response.ok) {
-    throw new Error("Signup failed");
+    throw new Error(payload.error || payload.message || "Login failed");
   }
 
-  return response.json();
+  return payload;
+}
+
+export async function signup(name: string, email: string, password: string) {
+  const response = await fetch(`${API_URL}/api/auth/signup`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: name.trim(),
+      email: email.trim(),
+      password,
+    }),
+  });
+
+  const payload = await parseJson(response);
+
+  if (!response.ok) {
+    throw new Error(payload.error || payload.message || "Signup failed");
+  }
+
+  return payload;
 }
 
 export async function logout() {
-  const response = await fetch(
-    `${API_URL}/api/auth/logout`,
-    {
-      method: "POST",
-      credentials: "include",
-    }
-  );
+  const response = await fetch(`${API_URL}/api/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
 
-  return response.json();
+  const payload = await parseJson(response);
+
+  if (!response.ok) {
+    return {
+      success: false,
+      error: payload.error || payload.message || "Logout failed",
+    };
+  }
+
+  return payload;
 }
 
 export async function getCurrentUser() {
-  const response = await fetch(
-    `${API_URL}/api/auth/me`,
-    {
-      credentials: "include",
-    }
-  );
+  const response = await fetch(`${API_URL}/api/auth/me`, {
+    credentials: "include",
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     return null;
   }
 
-  return response.json();
+  const payload = await parseJson(response);
+  return payload.user ?? payload;
 }
