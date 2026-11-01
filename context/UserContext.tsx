@@ -16,6 +16,7 @@ type UserContextValue = {
   user: User | null;
   setUser: (user: User | null) => void;
   loading: boolean;
+  isAuthenticated: boolean;
 };
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -39,8 +40,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     restoreSession();
   }, []);
 
+  const isAuthenticated = !!user;
+
   return (
-    <UserContext.Provider value={{ user, setUser, loading }}>
+    <UserContext.Provider value={{ user, setUser, loading, isAuthenticated }}>
       {children}
     </UserContext.Provider>
   );
