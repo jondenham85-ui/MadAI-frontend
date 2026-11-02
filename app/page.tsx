@@ -6,20 +6,12 @@ export default function SynthPage() {
     <>
       <Header />
 
-      <main className="p-8">
-        <h1
-          className="
-          text-4xl
-          font-bold
-          mb-8
-          "
-        >
-          SYNTH CORE
-        </h1>
-
-        <SynthConsole />
+      <main className="px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl">
+          <h1 className="mb-8 text-3xl font-bold text-cyan-300 sm:text-4xl">SYNTH CORE</h1>
+          <SynthConsole />
+        </div>
       </main>
     </>
   );
 }
-
