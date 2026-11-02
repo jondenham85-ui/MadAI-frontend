@@ -29,7 +29,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     async function restoreSession() {
       try {
         const currentUser = await getCurrentUser();
-        setUser(currentUser ?? null);
+
+        if (currentUser && typeof currentUser === "object" && "id" in currentUser) {
+          setUser(currentUser as User);
+        } else {
+          setUser(null);
+        }
       } catch {
         setUser(null);
       } finally {
@@ -40,7 +45,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     restoreSession();
   }, []);
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = !!user && !!user.id;
 
   return (
     <UserContext.Provider value={{ user, setUser, loading, isAuthenticated }}>

@@ -98,9 +98,11 @@ export default function SynthConsole() {
       ]);
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to reach the synth service right now.";
+        err instanceof DOMException && err.name === "AbortError"
+          ? "The synth request timed out. Please try again."
+          : err instanceof Error
+            ? err.message
+            : "Unable to reach the synth service right now.";
 
       setError(message);
       setMessages((prev) => [
@@ -118,16 +120,16 @@ export default function SynthConsole() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl overflow-hidden rounded-2xl border border-cyan-500/30 bg-black/90 p-4 shadow-[0_0_40px_rgba(34,211,238,0.15)] sm:p-6">
+    <div className="mx-auto w-full max-w-4xl overflow-x-hidden rounded-2xl border border-cyan-500/30 bg-black/90 p-4 shadow-[0_0_40px_rgba(34,211,238,0.15)] sm:p-6">
       <h2 className="mb-4 text-xl font-bold tracking-[0.2em] text-cyan-300">SYNTH CONSOLE</h2>
 
-      <div className="mb-4 h-80 overflow-y-auto rounded-xl border border-cyan-500/20 bg-black/60 p-3 sm:p-4">
+      <div className="mb-4 h-80 max-w-full overflow-y-auto overflow-x-hidden rounded-xl border border-cyan-500/20 bg-black/60 p-3 sm:p-4">
         {messages.length === 0 && !error && (
           <div className="text-sm text-cyan-600">Awaiting Directive...</div>
         )}
 
         {messages.map((message) => (
-          <div key={message.id} className="mb-4 font-mono text-sm">
+          <div key={message.id} className="mb-4 font-mono text-sm break-words">
             <div className="mb-1 text-[10px] uppercase tracking-[0.2em] text-cyan-400">
               {message.role === "user" ? "USER" : "MADSI"}
             </div>
@@ -137,12 +139,12 @@ export default function SynthConsole() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-500/60 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+        <div className="mb-4 rounded-lg border border-red-500/60 bg-red-500/10 px-3 py-2 text-sm text-red-200 break-words">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row">
+      <form onSubmit={handleSubmit} className="flex min-w-0 flex-col gap-3 sm:flex-row">
         <input
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}

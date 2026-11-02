@@ -1,4 +1,13 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://madai-backend-clean.onrender.com";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://madai-backend-clean.onrender.com").replace(/\/+$/, "");
+
+function readApiError(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const value = payload as Record<string, unknown>;
+  return (value.error as string) || (value.message as string) || (value.details as string) || fallback;
+}
 
 async function parseJson(response: Response) {
   const text = await response.text();
@@ -30,7 +39,7 @@ export async function login(email: string, password: string) {
   const payload = await parseJson(response);
 
   if (!response.ok) {
-    throw new Error(payload.error || payload.message || "Login failed");
+    throw new Error(readApiError(payload, "Login failed"));
   }
 
   return payload;
@@ -53,7 +62,7 @@ export async function signup(name: string, email: string, password: string) {
   const payload = await parseJson(response);
 
   if (!response.ok) {
-    throw new Error(payload.error || payload.message || "Signup failed");
+    throw new Error(readApiError(payload, "Signup failed"));
   }
 
   return payload;
@@ -70,7 +79,7 @@ export async function logout() {
   if (!response.ok) {
     return {
       success: false,
-      error: payload.error || payload.message || "Logout failed",
+      error: readApiError(payload, "Logout failed"),
     };
   }
 
