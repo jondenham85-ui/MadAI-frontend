@@ -1,6 +1,11 @@
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const config = require('../next.config.js');
-test('browser API calls use a same-origin proxy', () => { assert.equal(config.env.NEXT_PUBLIC_API_URL, '/api/backend'); });
-test('proxy targets the corrected Render backend', async () => { const routes = await config.rewrites(); assert.deepEqual(routes, [{ source: '/api/backend/:path*', destination: 'https://madai-backend-clean-1.onrender.com/:path*' }]); });
-test('health and auth requests keep their API paths', async () => { const [route] = await config.rewrites(); for (const path of ['api/health', 'api/auth/login', 'api/synth', 'api/billing/portal']) { const destination = new URL(route.destination.replace(':path*', path)); assert.equal(destination.origin, 'https://madai-backend-clean-1.onrender.com'); assert.equal(destination.pathname, `/${path}`); } });
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const config=require('../next.config.js');const {edgeUrl}=require('../lib/supabase-routing');
+const base='https://rcetiocftggebqzfuncd.supabase.co';
+test('browser API remains same origin',()=>assert.equal(config.env.NEXT_PUBLIC_API_URL,'/api/backend'));
+test('Render rewrite is removed',()=>assert.equal(config.rewrites,undefined));
+test('business requests target the Supabase function',()=>{const url=edgeUrl(base,['api','conversations'],'');assert.equal(url.origin,base);assert.equal(url.pathname,'/functions/v1/madsi-api/conversations');});
+test('query parameters are preserved',()=>assert.equal(edgeUrl(base,['api','memory'],'?category=PERSONAL').search,'?category=PERSONAL'));
+test('path identifiers are encoded',()=>assert.equal(edgeUrl(base,['api','conversations','an id','messages'],'').pathname,'/functions/v1/madsi-api/conversations/an%20id/messages'));
+test('absolute-looking segments cannot change origin',()=>{assert.equal(edgeUrl(base,['api','https:','attacker.invalid'],'').origin,base);});
+test('traversal segments are rejected',()=>{for(const value of ['.','..','a/b','a\\b',''])assert.throws(()=>edgeUrl(base,['api',value],''));});
+test('unsupported prefixes are rejected',()=>assert.throws(()=>edgeUrl(base,['internal','memory'],'')));
