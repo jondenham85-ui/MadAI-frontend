@@ -1,18 +1,3 @@
-import LoginForm from "@/components/auth/LoginForm";
-
-export default function LoginPage() {
-  return (
-    <main
-      className="
-      min-h-screen
-      bg-black
-      flex
-      justify-center
-      items-center
-      p-6
-      "
-    >
-      <LoginForm />
-    </main>
-  );
-}
+import Header from '@/components/layout/Header';
+import AuthForm from '@/components/AuthForm';
+export default function Page() { return <><Header /><main className="mad-main mad-narrow"><AuthForm mode="login" /></main></>; }

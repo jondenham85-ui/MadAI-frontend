@@ -1,49 +1,9 @@
-import Navigation from "./Navigation";
-
+'use client';
+import { useState } from 'react';
+import { useUser } from '@/context/UserContext';
+import { logout } from '@/services/auth';
 export default function Header() {
-  return (
-    <header
-      className="
-      border-b
-      border-cyan-500/20
-      bg-black
-      px-6
-      py-4
-      "
-    >
-      <div
-        className="
-        flex
-        flex-col
-        md:flex-row
-        justify-between
-        items-center
-        gap-4
-        "
-      >
-        <div>
-          <h1
-            className="
-            text-2xl
-            font-bold
-            text-cyan-300
-            "
-          >
-            MADSI
-          </h1>
-
-          <p
-            className="
-            text-sm
-            text-cyan-500
-            "
-          >
-            Madison Synthetic Intelligence
-          </p>
-        </div>
-
-        <Navigation />
-      </div>
-    </header>
-  );
+  const { user, setUser, loading } = useUser(); const [error, setError] = useState('');
+  async function signOut() { setError(''); try { await logout(); setUser(null); window.location.assign('/'); } catch { setError('Unable to sign out. Please retry.'); } }
+  return <header className="mad-header"><div className="mad-header-inner"><a className="mad-brand" href="/">MAD AI<small>Powered by MADSI</small></a><nav aria-label="Main navigation"><a href="/">Console</a><a href="/pricing">Pricing</a>{loading ? <span>Checking session…</span> : user ? <><span>{user.name}</span><button onClick={signOut}>Sign out</button></> : <><a href="/login">Sign in</a><a href="/signup">Create account</a></>}</nav></div>{error && <p role="alert">{error}</p>}</header>;
 }

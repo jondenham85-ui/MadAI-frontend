@@ -1,0 +1,26 @@
+name: Frontend release checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: npm install
+      - name: Test API routing
+        run: npm test
+      - name: Build production frontend
+        run: npm run build
+      - name: Typecheck the complete frontend
+        run: npm run typecheck
