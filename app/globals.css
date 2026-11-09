@@ -1,23 +1,42 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  color-scheme: dark;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html {
-  overflow-x: hidden;
-}
-
-body {
-  background: #000;
-  color: #00ffff;
-  margin: 0;
-  overflow-x: hidden;
-  max-width: 100vw;
-}
+:root { color-scheme: dark; font-family: Arial, Helvetica, sans-serif; background: #070b13; color: #e8f3ff; }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; overflow-x: hidden; }
+body { background: radial-gradient(circle at top, #102b3f 0, transparent 45%), #070b13; }
+a { color: #7ce8ff; }
+button, .mad-button { display: inline-block; padding: .75rem 1rem; border: 1px solid #67d9f3; border-radius: .6rem; background: #7ce8ff; color: #06121b; font: inherit; font-weight: 700; text-align: center; text-decoration: none; cursor: pointer; }
+button:disabled { cursor: wait; opacity: .6; }
+.mad-secondary { background: transparent; color: #e8f3ff; }
+.mad-header { padding: 1rem 1.25rem; border-bottom: 1px solid #244353; }
+.mad-header-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; max-width: 1100px; margin: auto; }
+.mad-brand { color: #b5f4ff; font-size: 1.5rem; font-weight: 800; text-decoration: none; }
+.mad-brand small { display: block; margin-top: .2rem; font-size: .75rem; font-weight: 400; }
+.mad-header nav { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.mad-main { width: min(1100px, 100%); margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+.mad-main > * + * { margin-top: 2rem; }
+.mad-narrow { max-width: 600px; }
+.mad-hero { padding: 1rem 0; }
+.mad-hero h1 { font-size: clamp(2rem, 6vw, 3.5rem); }
+.mad-eyebrow, .mad-muted { color: #a4bdcd; }
+.mad-card { padding: 1.5rem; border: 1px solid #2b5365; border-radius: 1rem; background: rgba(5,15,25,.88); }
+.mad-card h1, .mad-card h2, .mad-card h3, .mad-card h4 { margin-top: 0; }
+.mad-form { display: grid; gap: 1rem; }
+.mad-form label { display: grid; gap: .5rem; }
+input, textarea, select { width: 100%; padding: .8rem; border: 1px solid #476779; border-radius: .5rem; background: #07111b; color: #e8f3ff; font: inherit; }
+input:focus, textarea:focus, select:focus { outline: 2px solid #7ce8ff; outline-offset: 2px; }
+textarea { min-height: 130px; resize: vertical; }
+.mad-console-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.mad-messages { max-height: 520px; overflow-y: auto; margin: 1.5rem 0; }
+.mad-messages article { padding: 1rem 0; border-bottom: 1px solid #203c4b; }
+.mad-messages pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; line-height: 1.6; }
+.mad-pricing > * + * { margin-top: 1.5rem; }
+.mad-plan-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.mad-plan-grid .mad-card { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+.mad-plan-grid .mad-card button, .mad-plan-grid .mad-card .mad-button { margin-top: auto; }
+.mad-price { font-size: 2rem; margin: 0; }
+.mad-price small { font-size: 1rem; color: #a4bdcd; }
+.mad-error { padding: 1rem; border: 1px solid #b65c65; border-radius: .6rem; color: #ffd4d9; background: #35151e; overflow-wrap: anywhere; }
+.mad-paywall { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #476779; }
+@media(max-width:650px) { .mad-plan-grid { grid-template-columns: 1fr; } .mad-card { padding: 1rem; } .mad-main { padding-inline: 1rem; } }

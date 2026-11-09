@@ -1,101 +1,26 @@
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://madai-backend-clean.onrender.com").replace(/\/+$/, "");
-
-function readApiError(payload: unknown, fallback: string) {
-  if (!payload || typeof payload !== "object") {
-    return fallback;
-  }
-
-  const value = payload as Record<string, unknown>;
-  return (value.error as string) || (value.message as string) || (value.details as string) || fallback;
-}
-
-async function parseJson(response: Response) {
-  const text = await response.text();
-
-  if (!text) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: text };
+export type User = { id: string; name: string; email: string; role: string; plan: string; createdAt?: string; updatedAt?: string };
+type ErrorPayload = { error?: string; plan?: string; limit?: number | string | null };
+export class ApiError extends Error {
+  status: number; plan?: string; limit?: number | string | null;
+  constructor(status: number, payload: ErrorPayload) {
+    super(payload.error || `Request failed (${status})`); this.name = 'ApiError'; this.status = status; this.plan = payload.plan; this.limit = payload.limit;
   }
 }
-
-export async function login(email: string, password: string) {
-  const response = await fetch(`${API_URL}/api/auth/login`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email: email.trim(),
-      password,
-    }),
-  });
-
-  const payload = await parseJson(response);
-
-  if (!response.ok) {
-    throw new Error(readApiError(payload, "Login failed"));
-  }
-
-  return payload;
+const API_BASE = '/api/backend/api';
+export async function apiRequest<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', cache: 'no-store', headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers } });
+  const payload = await response.json().catch(() => ({ error: 'The server returned an invalid response' }));
+  if (!response.ok) throw new ApiError(response.status, payload);
+  return payload as T;
 }
-
-export async function signup(name: string, email: string, password: string) {
-  const response = await fetch(`${API_URL}/api/auth/signup`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name: name.trim(),
-      email: email.trim(),
-      password,
-    }),
-  });
-
-  const payload = await parseJson(response);
-
-  if (!response.ok) {
-    throw new Error(readApiError(payload, "Signup failed"));
-  }
-
-  return payload;
+export function login(email: string, password: string) {
+  return apiRequest<{ success: boolean; user: User }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
 }
-
-export async function logout() {
-  const response = await fetch(`${API_URL}/api/auth/logout`, {
-    method: "POST",
-    credentials: "include",
-  });
-
-  const payload = await parseJson(response);
-
-  if (!response.ok) {
-    return {
-      success: false,
-      error: readApiError(payload, "Logout failed"),
-    };
-  }
-
-  return payload;
+export function signup(name: string, email: string, password: string) {
+  return apiRequest<{ success: boolean; user: User }>('/auth/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) });
 }
-
-export async function getCurrentUser() {
-  const response = await fetch(`${API_URL}/api/auth/me`, {
-    credentials: "include",
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = await parseJson(response);
-  return payload.user ?? payload;
+export function logout() { return apiRequest('/auth/logout', { method: 'POST' }); }
+export async function getCurrentUser(): Promise<User | null> {
+  try { return (await apiRequest<{ user: User }>('/auth/me')).user; }
+  catch (error) { if (error instanceof ApiError && error.status === 401) return null; throw error; }
 }

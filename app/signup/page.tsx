@@ -1,18 +1,3 @@
-import SignupForm from "@/components/auth/SignupForm";
-
-export default function SignupPage() {
-  return (
-    <main
-      className="
-      min-h-screen
-      bg-black
-      flex
-      justify-center
-      items-center
-      p-6
-      "
-    >
-      <SignupForm />
-    </main>
-  );
-}
+import Header from '@/components/layout/Header';
+import AuthForm from '@/components/AuthForm';
+export default function Page() { return <><Header /><main className="mad-main mad-narrow"><AuthForm mode="signup" /></main></>; }
