@@ -1,0 +1,12 @@
+const{test}=require('node:test');const assert=require('node:assert/strict');const{readFileSync}=require('node:fs');const{nextAttempt,retryNeedsNewKey}=require('../lib/synth-request');
+test('same request reuses its idempotency key',()=>{let n=0;const first=nextAttempt(null,'same',()=>String(++n));assert.equal(nextAttempt(first,'same',()=>String(++n)),first);assert.equal(n,1);});
+test('changed payload gets a new key',()=>assert.equal(nextAttempt({id:'old',fingerprint:'old'},'new',()=> 'new-id').id,'new-id'));
+test('uncertain persistence error keeps the same key',()=>assert.equal(retryNeedsNewKey(503,undefined,'Execution unavailable',false),false));
+test('in-progress response keeps the same key',()=>assert.equal(retryNeedsNewKey(409,undefined,'request_in_progress',false),false));
+test('refunded terminal request permits a new key',()=>assert.equal(retryNeedsNewKey(409,undefined,'request_failed_use_new_key',false),true));
+test('provider timeout with a completed refund permits a new key',()=>assert.equal(retryNeedsNewKey(504,'PROVIDER_TIMEOUT','OpenAI timed out',false),true));
+test('uncertain refund preserves the existing key',()=>assert.equal(retryNeedsNewKey(504,'PROVIDER_TIMEOUT','OpenAI timed out',true),false));
+test('quota refusal permits a new attempt later',()=>assert.equal(retryNeedsNewKey(402,undefined,'upgrade_required',false),true));
+test('bridge forwards request key and allows provider timeout budget',()=>{const source=readFileSync('app/api/backend/[...path]/route.ts','utf8');assert.match(source,/maxDuration=60/);assert.match(source,/AbortSignal\.timeout\(45000\)/);assert.match(source,/headers\['Idempotency-Key'\]=requestKey/);assert.doesNotMatch(source,/onrender\.com/);});
+test('body budget permits multilingual input but remains bounded',()=>assert.match(readFileSync('lib/supabase/http.ts','utf8'),/size>131072/));
+test('console restores history through authenticated API and clears account state',()=>{const s=readFileSync('components/synth/SynthConsole.tsx','utf8');assert.match(s,/encodeURIComponent\(id\).*\/messages/);assert.match(s,/currentUser\.current!==uid/);assert.match(s,/setMessages\(\[\]\);setPrompt\(''\)/);assert.match(s,/status!=='COMPLETED'/);});

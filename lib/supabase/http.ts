@@ -17,7 +17,7 @@ export async function readJson(request:NextRequest){
   if(request.headers.get('content-type')?.split(';')[0]!=='application/json')throw new HttpError(415,'JSON required');
   const reader=request.body?.getReader();if(!reader)throw new HttpError(400,'JSON required');
   const chunks:Uint8Array[]=[];let size=0;
-  try{while(true){const{done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>16384){await reader.cancel();throw new HttpError(413,'Request too large');}chunks.push(value);}}finally{reader.releaseLock();}
+  try{while(true){const{done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>131072){await reader.cancel();throw new HttpError(413,'Request too large');}chunks.push(value);}}finally{reader.releaseLock();}
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
   let data:unknown;try{data=JSON.parse(new TextDecoder().decode(bytes));}catch{throw new HttpError(400,'Invalid JSON');}
   if(!data||typeof data!=='object'||Array.isArray(data))throw new HttpError(400,'JSON object required');return data as Record<string,unknown>;

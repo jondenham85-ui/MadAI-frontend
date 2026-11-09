@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {authContext,currentUser,failure,HttpError,readJson,requireOrigin} from '@/lib/supabase/http';
 import {edgeUrl} from '@/lib/supabase-routing';
-export const dynamic='force-dynamic';export const runtime='nodejs';
+export const dynamic='force-dynamic';export const runtime='nodejs';export const maxDuration=60;
 type Context={params:Promise<{path:string[]}>};
 async function handle(request:NextRequest,context:Context){
   let auth:ReturnType<typeof authContext>|undefined;
@@ -34,11 +34,13 @@ async function handle(request:NextRequest,context:Context){
       const{data,error}=await client.auth.getSession();if(error||!data.session?.access_token)throw new HttpError(401,'Authentication required');headers.Authorization='Bearer '+data.session.access_token;
     }
     const contentType=request.headers.get('content-type');if(contentType)headers['Content-Type']=contentType;
-    const init:RequestInit={method:request.method,cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(15000),headers};
+    const requestKey=request.headers.get('idempotency-key');
+    if(requestKey){if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestKey))throw new HttpError(400,'Invalid request key');headers['Idempotency-Key']=requestKey;}
+    const init:RequestInit={method:request.method,cache:'no-store',redirect:'manual',signal:AbortSignal.timeout(45000),headers};
     if(!['GET','HEAD'].includes(request.method)&&request.body)init.body=JSON.stringify(await readJson(request));
     let target:URL;try{target=edgeUrl(auth.url,path,request.nextUrl.search);}catch{throw new HttpError(400,'Invalid API path');}
     const upstream=await fetch(target,init);
     return finish(new NextResponse(upstream.body,{status:upstream.status,headers:{'Content-Type':upstream.headers.get('content-type')||'application/json'}}));
-  }catch(error){const response=failure(error);return auth?auth.finish(response):response;}
+  }catch(error){const timedOut=error instanceof Error&&['TimeoutError','AbortError'].includes(error.name);const response=failure(timedOut?new HttpError(504,'Backend execution timed out; retry the same request'):error);return auth?auth.finish(response):response;}
 }
 export{handle as GET,handle as POST,handle as PATCH,handle as DELETE};
