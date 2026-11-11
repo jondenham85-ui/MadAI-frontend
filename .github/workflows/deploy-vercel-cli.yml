@@ -1,0 +1,111 @@
+name: MADSI Vercel CLI production deployment
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/deploy-vercel-cli.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: madsi-vercel-cli-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      VERCEL_ORG_ID: team_ZgnkrMwAxxVyxE3Vbp0v5rHA
+      VERCEL_PROJECT_ID: prj_8Dyunbeip2UfokoY5nh9UceVKAX6
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Check required deployment credential without printing it
+        shell: bash
+        run: |
+          if [ -z "${VERCEL_TOKEN:-}" ]; then
+            echo '::error::Missing VERCEL_TOKEN in GitHub production-environment or repository secrets. No deployment attempted.'
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: 11bed925059562edd6715d65936499faf749da7c
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Install project dependencies
+        run: npm install
+      - name: Run release regression tests
+        run: npm test
+      - name: Pull existing production project configuration
+        run: vercel pull --yes --environment=production --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+      - name: Verify exact project scope before building
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const project = JSON.parse(fs.readFileSync('.vercel/project.json', 'utf8'));
+          if (project.orgId !== process.env.VERCEL_ORG_ID || project.projectId !== process.env.VERCEL_PROJECT_ID) throw new Error('Deployment scope mismatch; refusing to deploy');
+          NODE
+      - name: Build production artifacts
+        run: vercel build --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+      - name: Typecheck the built frontend
+        run: npm run typecheck
+      - name: Deploy prebuilt artifacts to the existing production project
+        id: deploy
+        shell: bash
+        run: |
+          vercel deploy --prebuilt --prod --yes --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN" > "$RUNNER_TEMP/madsi-deployment-url.txt"
+          deployment_url="$(tail -n 1 "$RUNNER_TEMP/madsi-deployment-url.txt" | tr -d '\r')"
+          if [[ ! "$deployment_url" =~ ^https://[A-Za-z0-9.-]+\.vercel\.app/?$ ]]; then
+            echo '::error::The deploy command completed but its output was not a recognized deployment URL. Inspect this step before retrying.'
+            exit 1
+          fi
+          printf 'url=%s\n' "$deployment_url" >> "$GITHUB_OUTPUT"
+          printf 'Deployed source: 11bed925059562edd6715d65936499faf749da7c\nDeployment: %s\n' "$deployment_url" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify production routing and unauthenticated access boundaries
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const origins = [process.env.DEPLOYMENT_URL, 'https://www.madmadisonai.com'];
+          const results = [];
+          for (const origin of origins) {
+            let healthPassed = false;
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                const response = await fetch(origin + '/api/backend/api/health', {redirect:'error',cache:'no-store',signal:AbortSignal.timeout(15000)});
+                const body = await response.json();
+                healthPassed = response.status === 200 && body.schemaVersion === 'madsi-supabase-v2' && body.database === 'connected' && body.status === 'ok' && body.openaiConfigured === true;
+              } catch { healthPassed = false; }
+              if (healthPassed) break;
+              if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+            const boundaryStatuses = [];
+            for (const path of ['/api/backend/api/auth/me','/api/agents/registry']) {
+              try { boundaryStatuses.push((await fetch(origin + path, {redirect:'error',cache:'no-store',signal:AbortSignal.timeout(15000)})).status); }
+              catch { boundaryStatuses.push(null); }
+            }
+            results.push({origin,healthPassed,boundaryStatuses,passed:healthPassed && boundaryStatuses.every(status=>status===401)});
+          }
+          const report = {source:'11bed925059562edd6715d65936499faf749da7c',results,note:'Routing and access-boundary smoke checks only; real AI answers, login, billing and agent execution are not proven.'};
+          fs.writeFileSync(process.env.RUNNER_TEMP + '/madsi-cli-verification.json', JSON.stringify(report,null,2));
+          console.log(JSON.stringify(report,null,2));
+          if (results.some(result=>!result.passed)) process.exitCode = 1;
+          NODE
+      - name: Preserve non-secret deployment evidence
+        if: always() && steps.deploy.outputs.url != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: madsi-cli-deployment-evidence
+          path: |
+            ${{ runner.temp }}/madsi-deployment-url.txt
+            ${{ runner.temp }}/madsi-cli-verification.json
+          if-no-files-found: warn
+          retention-days: 7
