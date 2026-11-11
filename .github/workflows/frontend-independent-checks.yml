@@ -1,0 +1,102 @@
+name: Independent frontend release checks
+on:
+  push:
+    branches: [madsi/production-supabase-migration]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dependency-free-tests:
+    name: regression-${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [routing, infrastructure, ownerStats, supabase-proxy]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run the actual suite without package installation
+        run: node --test test/${{ matrix.suite }}.test.cjs
+  dependencies:
+    name: Verify dependency installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.install.outputs.code }}
+      package: ${{ steps.install.outputs.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install and preserve the real exit status
+        id: install
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          logfile="$RUNNER_TEMP/madsi-npm-install.log"
+          npm install 2>&1 | tee "$logfile"
+          status=${PIPESTATUS[0]}
+          code=$(sed -nE 's/^npm (ERR!|error) code ([A-Z0-9_]+).*$/\2/p' "$logfile" | head -n 1)
+          package=$(sed -nE 's/^npm (ERR!|error) notarget No matching version found for ([A-Za-z0-9@_./+-]+)\.?$/\2/p' "$logfile" | head -n 1)
+          if [ "$status" -eq 0 ]; then code=OK; fi
+          printf 'code=%s\n' "${code:-UNKNOWN}" >> "$GITHUB_OUTPUT"
+          printf 'package=%s\n' "${package:-unspecified}" >> "$GITHUB_OUTPUT"
+          exit "$status"
+  dependency-result:
+    name: dependency-install-${{ needs.dependencies.outputs.code || 'unavailable' }}-${{ needs.dependencies.outputs.package || 'unspecified' }}
+    needs: dependencies
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    env:
+      CHECK_RESULT: ${{ needs.dependencies.result }}
+    steps:
+      - name: Keep dependency failures blocking
+        run: test "$CHECK_RESULT" = success
+  infrastructure-scan:
+    name: Locate infrastructure-check findings
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      paths: ${{ steps.scan.outputs.paths }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Publish sanitized paths without publishing source or secrets
+        id: scan
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { scan } = require('./test/infrastructure.test.cjs');
+          let label;
+          try {
+            const paths = scan(process.cwd());
+            label = paths.length ? paths.join('__').replace(/[^A-Za-z0-9_./-]/g, '_').slice(0, 180) : 'none';
+          } catch (error) {
+            label = 'scan-error-' + String(error.code || 'UNKNOWN').replace(/[^A-Z0-9_]/g, '_').slice(0, 40);
+            process.exitCode = 1;
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'paths=' + label + '\n');
+          NODE
+  infrastructure-findings:
+    name: infrastructure-findings-${{ needs.infrastructure-scan.outputs.paths || 'unavailable' }}
+    needs: infrastructure-scan
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    env:
+      CHECK_RESULT: ${{ needs.infrastructure-scan.result }}
+    steps:
+      - name: Keep infrastructure failures blocking
+        run: test "$CHECK_RESULT" = success
