@@ -33,3 +33,4 @@ test('infrastructure scanner detects obsolete hosts, environment variables and b
     assert.deepEqual(scan(directory), ['.env.production',obsoleteBlueprint,'service.js'].sort());
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });
+module.exports = { scan };

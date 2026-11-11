@@ -61,3 +61,42 @@ jobs:
     steps:
       - name: Keep dependency failures blocking
         run: test "$CHECK_RESULT" = success
+  infrastructure-scan:
+    name: Locate infrastructure-check findings
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      paths: ${{ steps.scan.outputs.paths }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Publish sanitized paths without publishing source or secrets
+        id: scan
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { scan } = require('./test/infrastructure.test.cjs');
+          let label;
+          try {
+            const paths = scan(process.cwd());
+            label = paths.length ? paths.join('__').replace(/[^A-Za-z0-9_./-]/g, '_').slice(0, 180) : 'none';
+          } catch (error) {
+            label = 'scan-error-' + String(error.code || 'UNKNOWN').replace(/[^A-Z0-9_]/g, '_').slice(0, 40);
+            process.exitCode = 1;
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'paths=' + label + '\n');
+          NODE
+  infrastructure-findings:
+    name: infrastructure-findings-${{ needs.infrastructure-scan.outputs.paths || 'unavailable' }}
+    needs: infrastructure-scan
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    env:
+      CHECK_RESULT: ${{ needs.infrastructure-scan.result }}
+    steps:
+      - name: Keep infrastructure failures blocking
+        run: test "$CHECK_RESULT" = success
