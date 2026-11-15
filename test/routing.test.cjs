@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const config = require('../next.config.js');
-const functions = 'https://lsbqmdpmaurhqlkuuldh.supabase.co/functions/v1';
+const functions = 'https://rcetiocftggebqzfuncd.supabase.co/functions/v1';
 
 test('browser calls use the same-origin API base in config and production environment', () => {
   assert.equal(config.env.NEXT_PUBLIC_API_URL, '/api/backend');
@@ -41,4 +41,11 @@ test('obsolete backend environment overrides cannot redirect application traffic
     if (original === undefined) delete process.env.MADSI_BACKEND_URL;
     else process.env.MADSI_BACKEND_URL = original;
   }
+});
+
+test('rewrite and server proxy share the authoritative production target', () => {
+  assert.equal(require('../lib/production-backend.cjs'), functions);
+  const proxy = fs.readFileSync(path.join(__dirname, '../lib/supabase-proxy.mjs'), 'utf8');
+  assert.match(proxy, /import ROOT from '\.\/production-backend\.cjs'/);
+  assert.doesNotMatch(proxy, /https:\/\/[a-z]+\.supabase\.co/);
 });
