@@ -8,19 +8,86 @@ permissions:
 jobs:
   frontend-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Record source and runtime
+        run: |
+          printf 'Commit: %s\n' "$GITHUB_SHA"
+          node --version
+          npm --version
       - name: Install dependencies
-        run: npm install
-      - name: Test API routing
-        run: npm test
+        id: install
+        shell: bash
+        run: |
+          set -o pipefail
+          npm install 2>&1 | tee "$RUNNER_TEMP/madsi-install.log"
+      - name: Test complete regression suite
+        id: tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee "$RUNNER_TEMP/madsi-tests.log"
       - name: Build production frontend
-        run: npm run build
+        id: build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee "$RUNNER_TEMP/madsi-build.log"
       - name: Typecheck the complete frontend
-        run: npm run typecheck
+        id: types
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee "$RUNNER_TEMP/madsi-types.log"
+      - name: Record actual outcomes
+        if: always()
+        env:
+          INSTALL_RESULT: ${{ steps.install.outcome }}
+          TEST_RESULT: ${{ steps.tests.outcome }}
+          BUILD_RESULT: ${{ steps.build.outcome }}
+          TYPE_RESULT: ${{ steps.types.outcome }}
+        run: |
+          {
+            printf 'Commit: `%s`\n\n' "$GITHUB_SHA"
+            printf '| Check | Outcome |\n| --- | --- |\n'
+            printf '| Dependencies | %s |\n' "$INSTALL_RESULT"
+            printf '| Tests | %s |\n' "$TEST_RESULT"
+            printf '| Build | %s |\n' "$BUILD_RESULT"
+            printf '| Types | %s |\n\n' "$TYPE_RESULT"
+            printf 'Source validation only. No deployment or live acceptance is performed by this workflow.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-checks-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/madsi-*.log
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Require all checks to pass
+        if: always()
+        env:
+          INSTALL_RESULT: ${{ steps.install.outcome }}
+          TEST_RESULT: ${{ steps.tests.outcome }}
+          BUILD_RESULT: ${{ steps.build.outcome }}
+          TYPE_RESULT: ${{ steps.types.outcome }}
+        run: |
+          test "$INSTALL_RESULT" = success
+          test "$TEST_RESULT" = success
+          test "$BUILD_RESULT" = success
+          test "$TYPE_RESULT" = success
