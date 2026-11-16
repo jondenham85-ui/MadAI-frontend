@@ -1,4 +1,4 @@
-const SUPABASE_FUNCTIONS = 'https://lsbqmdpmaurhqlkuuldh.supabase.co/functions/v1';
+const SUPABASE_FUNCTIONS = require('./lib/production-backend.cjs');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
