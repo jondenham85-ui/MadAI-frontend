@@ -1,0 +1,28 @@
+name: Auto-repair patch policy
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  repair-policy:
+    if: startsWith(github.event.pull_request.head.ref, 'madsi/auto-repair/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Evaluate diff with trusted base policy only
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPAIR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show "$BASE_SHA:scripts/auto-repair-policy.cjs" > "$RUNNER_TEMP/madsi-trusted-repair-policy.cjs"
+          node "$RUNNER_TEMP/madsi-trusted-repair-policy.cjs" "$BASE_SHA" "$HEAD_SHA"
