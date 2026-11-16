@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const config = require('../next.config.js');
-const functions = 'https://lsbqmdpmaurhqlkuuldh.supabase.co/functions/v1';
+const functions = 'https://rcetiocftggebqzfuncd.supabase.co/functions/v1';
 
 test('browser calls use the same-origin API base in config and production environment', () => {
   assert.equal(config.env.NEXT_PUBLIC_API_URL, '/api/backend');
