@@ -1,0 +1,46 @@
+name: MADSI production watchdog
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/madsi-watchdog.mjs'
+      - 'scripts/run-madsi-watchdog.mjs'
+      - 'test/watchdog.test.cjs'
+      - '.github/workflows/madsi-watchdog.yml'
+permissions:
+  contents: read
+concurrency:
+  group: madsi-production-watchdog
+  cancel-in-progress: false
+jobs:
+  monitor:
+    if: github.repository == 'jondenham85-ui/MadAI-frontend' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify watchdog safety tests
+        run: node --test test/watchdog.test.cjs
+      - name: Probe production and record an outage task
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/run-madsi-watchdog.mjs
+      - name: Preserve sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchdog-${{ github.run_id }}-${{ github.run_attempt }}
+          path: watchdog-report/health.json
+          if-no-files-found: warn
+          retention-days: 7
