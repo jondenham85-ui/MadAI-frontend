@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const load = () => import('../lib/supabase-proxy.mjs');
-const base = 'https://rcetiocftggebqzfuncd.supabase.co/functions/v1';
+const base = 'https://lsbqmdpmaurhqlkuuldh.supabase.co/functions/v1';
 const request = (headers = {}, options = {}) => new Request('https://www.madmadisonai.com/api/backend/api/auth/me', { headers, ...options });
 const json = (payload, status = 200, cookies = []) => {
   const headers = new Headers({ 'Content-Type': 'application/json' });
