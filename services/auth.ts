@@ -30,7 +30,8 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
   const work = async (): Promise<T> => {
     if (controller.signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
     let auth: Awaited<ReturnType<typeof authClient>> | null = null, token: string | null = null;
-    if (typeof window !== 'undefined') {
+    const publicHealth = path === '/health' && ['GET', 'HEAD'].includes((options.method || 'GET').toUpperCase());
+    if (typeof window !== 'undefined' && !publicHealth) {
       try { auth = await authClient(); token = await auth.getAccessToken(); }
       catch (error) { if (isAuthError(error)) throw new ApiError(error.status, { error: error.message }); throw error; }
       if (!token) throw new ApiError(401, { error: 'Please sign in to continue.' });
@@ -46,7 +47,7 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
           if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
           throw new ApiError(504, { error: 'The request timed out. Check your conversation history before retrying.' });
         }
-        throw new ApiError(503, { error: 'Cannot reach MADSI. Check your connection and try again.' });
+        throw new ApiError(503, { error: 'Cannot reach MAD SI. Check your connection and try again.' });
       }
     };
     let response = await send(token ?? undefined);
