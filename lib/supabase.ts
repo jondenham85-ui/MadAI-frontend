@@ -74,9 +74,11 @@ async function refreshStored(expected?: string): Promise<SupabaseSession | null>
 }
 export function refreshSession(expected?: string): Promise<SupabaseSession | null> {
   if (refreshing) return refreshing;
-  const run = () => {
+  const run = async () => {
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    return locks?.request ? locks.request('madsi-supabase-auth-refresh', { mode: 'exclusive' }, () => refreshStored(expected)) : refreshStored(expected);
+    return locks?.request
+      ? await locks.request('madsi-supabase-auth-refresh', { mode: 'exclusive' }, () => refreshStored(expected))
+      : await refreshStored(expected);
   };
   refreshing = run().finally(() => { refreshing = null; });
   return refreshing;
