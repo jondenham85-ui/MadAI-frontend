@@ -27,7 +27,7 @@ function read(): SupabaseSession | null {
 function marker(active: boolean) {
   if (typeof document === 'undefined') return;
   const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = active ? `madsi_access=1; Path=/; SameSite=Lax; Max-Age=3600${secure}` : `madsi_access=; Path=/; SameSite=Lax; Max-Age=0${secure}`;
+  document.cookie = active ? `madsi_access=1; Path=/; SameSite=Lax; Max-Age=604800${secure}` : `madsi_access=; Path=/; SameSite=Lax; Max-Age=0${secure}`;
 }
 function emit(session: SupabaseSession | null) { for (const listener of listeners) { try { listener(session); } catch { /* isolate observers */ } } }
 export function setSession(payload: AuthPayload): SupabaseSession {
