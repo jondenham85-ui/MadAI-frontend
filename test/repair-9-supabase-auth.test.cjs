@@ -33,7 +33,7 @@ test('password sign-in calls Supabase Auth and persists the session', async () =
 });
 
 test('signup sends name metadata and leaves email-confirmation users signed out', async () => {
-  const api=await auth; let body;
+  const api=await auth; api.clearSession(); let body;
   global.fetch=async (_url,options)=>{body=JSON.parse(options.body);return json({user:{id:'new-user'}});};
   assert.equal(await api.signUpWithPassword('New User','new@example.com','password123'),null);
   assert.deepEqual(body,{email:'new@example.com',password:'password123',data:{name:'New User'}});
