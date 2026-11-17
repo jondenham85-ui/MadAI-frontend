@@ -9,8 +9,8 @@ const POLICY = Object.freeze({
   requiredChecks: Object.freeze(['tests', 'build', 'typecheck'])
 });
 
-// One incident-specific exception, approved by the repository owner in Issue #9.
-// It applies only to the dedicated Issue #9 repair branch and these exact files.
+// Owner-approved exception for Issue #9 only. All other repairs retain the
+// original three-file, 100-line, non-sensitive-helper restrictions.
 const ISSUE_9_AUTH = Object.freeze({
   branch: 'madsi/auto-repair/9-supabase-auth-contract',
   maxFiles: 5,
@@ -29,9 +29,12 @@ function evaluateRepair({ repository, branch, files } = {}) {
   if (repository !== POLICY.repository) reasons.push('WRONG_REPOSITORY');
 
   const incidentException = branch === ISSUE_9_AUTH.branch;
-  if (!incidentException && (typeof branch !== 'string' || !/^madsi\\/auto-repair\\/[1-9][0-9]*-[a-z0-9-]+$/.test(branch))) {
-    reasons.push('DEDICATED_INCIDENT_BRANCH_REQUIRED');
-  }
+  const branchParts = typeof branch === 'string' ? branch.split('/') : [];
+  const validStandardBranch = branchParts.length === 3 &&
+    branchParts[0] === 'madsi' &&
+    branchParts[1] === 'auto-repair' &&
+    /^[1-9][0-9]*-[a-z0-9-]+$/.test(branchParts[2]);
+  if (!incidentException && !validStandardBranch) reasons.push('DEDICATED_INCIDENT_BRANCH_REQUIRED');
 
   const maxFiles = incidentException ? ISSUE_9_AUTH.maxFiles : POLICY.maxFiles;
   const maxChangedLines = incidentException ? ISSUE_9_AUTH.maxChangedLines : POLICY.maxChangedLines;
@@ -44,15 +47,19 @@ function evaluateRepair({ repository, branch, files } = {}) {
   for (const file of files) {
     if (!file || typeof file.path !== 'string') { reasons.push('INVALID_FILE'); continue; }
     const path = file.path;
-    if (!/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') || path.split('/').some(part => !part || part === '.' || part === '..') || seen.has(path)) {
+    if (!/^[A-Za-z0-9_./-]+$/.test(path) || path.startsWith('/') ||
+        path.split('/').some(part => !part || part === '.' || part === '..') || seen.has(path)) {
       reasons.push('UNSAFE_OR_DUPLICATE_PATH');
       continue;
     }
     seen.add(path);
-    if (!['A','M'].includes(file.status) || file.newMode !== '100644' || !['000000','100644'].includes(file.oldMode) || (file.status === 'A') !== (file.oldMode === '000000')) {
+    if (!['A','M'].includes(file.status) || file.newMode !== '100644' ||
+        !['000000','100644'].includes(file.oldMode) ||
+        (file.status === 'A') !== (file.oldMode === '000000')) {
       reasons.push('ONLY_REGULAR_ADDITIONS_OR_MODIFICATIONS');
     }
-    if (!Number.isSafeInteger(file.additions) || !Number.isSafeInteger(file.deletions) || file.additions < 0 || file.deletions < 0) {
+    if (!Number.isSafeInteger(file.additions) || !Number.isSafeInteger(file.deletions) ||
+        file.additions < 0 || file.deletions < 0) {
       reasons.push('INVALID_OR_BINARY_DIFF');
     } else lines += file.additions + file.deletions;
 
@@ -60,8 +67,9 @@ function evaluateRepair({ repository, branch, files } = {}) {
     const incidentTest = incidentException && path === ISSUE_9_AUTH.testPath &&
       file.status === 'A' && file.oldMode === '000000' && file.deletions === 0;
     const sensitive = /auth|session|cookie|permission|owner|agent|billing|stripe|payment|revenue|subscription|pricing|supabase|production|secret|token|constant|middleware|schema|database/i.test(path);
-    const helper = /^(lib|hooks)\\/[A-Za-z0-9_./-]+\\.(js|cjs|mjs|ts)$/.test(path) && !sensitive;
-    const newTest = /^test\\/repair-[a-z0-9-]+\\.test\\.cjs$/.test(path) &&
+    const helper = (path.startsWith('lib/') || path.startsWith('hooks/')) &&
+      ['.js','.cjs','.mjs','.ts'].some(ext => path.endsWith(ext)) && !sensitive;
+    const newTest = path.startsWith('test/repair-') && path.endsWith('.test.cjs') &&
       file.status === 'A' && file.oldMode === '000000' && file.deletions === 0;
 
     if (incidentException ? (!incidentSource && !incidentTest) : (!helper && !newTest)) {
@@ -84,11 +92,11 @@ if (require.main === module) {
     const [base, head] = process.argv.slice(2);
     if (![base,head].every(value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value))) throw new Error('Exact commit SHAs required');
     const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1048576, timeout: 10000 });
-    const stats = new Map(git(['diff','--numstat','-z','--no-renames',base,head]).split('\\0').filter(Boolean).map(row => {
-      const [a,d,...p] = row.split('\\t');
-      return [p.join('\\t'), { additions: /^\\d+$/.test(a) ? Number(a) : null, deletions: /^\\d+$/.test(d) ? Number(d) : null }];
+    const stats = new Map(git(['diff','--numstat','-z','--no-renames',base,head]).split('\0').filter(Boolean).map(row => {
+      const [a,d,...p] = row.split('\t');
+      return [p.join('\t'), { additions: /^[0-9]+$/.test(a) ? Number(a) : null, deletions: /^[0-9]+$/.test(d) ? Number(d) : null }];
     }));
-    const raw = git(['diff','--raw','-z','--no-renames',base,head]).split('\\0').filter(Boolean);
+    const raw = git(['diff','--raw','-z','--no-renames',base,head]).split('\0').filter(Boolean);
     const files = [];
     for (let i=0; i<raw.length; i+=2) {
       const [oldMode,newMode,,,status] = raw[i].slice(1).split(' ');
