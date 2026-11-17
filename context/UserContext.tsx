@@ -9,11 +9,16 @@ const UserContext = createContext<UserContextValue | null>(null);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null), [loading, setLoading] = useState(true);
   useEffect(() => {
-    let active = true;
-    const restore = () => getCurrentUser().then(current => { if (active) setUser(current); })
-      .catch(() => { if (active) setUser(null); }).finally(() => { if (active) setLoading(false); });
+    let active = true, generation = 0;
+    const restore = () => {
+      const current = ++generation;
+      getCurrentUser().then(user => { if (active && current === generation) setUser(user); })
+        .catch(() => { if (active && current === generation) setUser(null); })
+        .finally(() => { if (active && current === generation) setLoading(false); });
+    };
     restore();
     const unsubscribe = onAuthStateChange(session => {
+      generation++;
       if (!session) { if (active) { setUser(null); setLoading(false); } } else restore();
     });
     return () => { active = false; unsubscribe(); };
