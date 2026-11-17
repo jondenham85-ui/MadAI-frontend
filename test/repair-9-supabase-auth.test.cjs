@@ -74,7 +74,7 @@ test('sign-out revokes the remote session and clears local state', async () => {
 test('unauthenticated restore remains signed out and role is read from the server profile', async () => {
   const api=await auth;api.clearSession();assert.equal(await api.getAccessToken(),null);
   const source=fs.readFileSync(require.resolve('../services/auth.ts'),'utf8');
-  assert.ok(source.includes('if (!(await getAccessToken())) return null'));
+  assert.ok(source.includes("typeof window !== 'undefined' && !(await (await authClient()).getAccessToken())"));
   assert.ok(source.includes("apiRequest<{ user?: User }>('/auth/me')"));
   assert.ok(!source.includes('user_metadata.role'));
 });
