@@ -56,9 +56,9 @@ test('expired sessions refresh once across concurrent callers', async () => {
 
 test('authenticated API retries a 401 once with a refreshed bearer token', () => {
   const source=fs.readFileSync(require.resolve('../services/auth.ts'),'utf8');
-  assert.ok(source.includes("requestHeaders.set('Authorization', `Bearer ${token}`)"));
-  assert.ok(source.includes('if (response.status === 401)'));
-  assert.ok(source.includes('refreshSession(token)'));
+  assert.ok(source.includes("requestHeaders.set('Authorization', `Bearer ${accessToken}`)"));
+  assert.ok(source.includes('if (response.status === 401 && token && auth)'));
+  assert.ok(source.includes('auth.refreshSession(token)'));
   assert.ok(source.includes("if (!token) throw new ApiError(401"));
 });
 
