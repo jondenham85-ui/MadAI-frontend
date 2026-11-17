@@ -44,7 +44,7 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
       let renewed;
       try { renewed = await refreshSession(token); }
       catch (error) { if (error instanceof SupabaseAuthError) throw new ApiError(error.status, { error: error.message }); throw error; }
-      if (renewed?.access_token) response = await send(renewed.access_token); else clearSession();
+      if (renewed?.access_token) { response = await send(renewed.access_token); if (response.status === 401) clearSession(); } else clearSession();
     }
     const result = await payload(response);
     if (!response.ok) {
