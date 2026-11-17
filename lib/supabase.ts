@@ -1,13 +1,14 @@
 export type SupabaseSession = { access_token: string; refresh_token: string; expires_at: number; user?: { id: string; email?: string } };
 type AuthPayload = Partial<SupabaseSession> & { expires_in?: number; msg?: string; message?: string; error_description?: string; error?: string };
-const URL_BASE = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\\/+$/, '');
+const URL_BASE = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/+$/, '');
 const API_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
 const STORAGE_KEY = 'madsi.supabase.auth.v1';
 const listeners = new Set<(session: SupabaseSession | null) => void>();
 let refreshing: Promise<SupabaseSession | null> | null = null;
 
 export class SupabaseAuthError extends Error {
-  constructor(public status: number, message: string) { super(message); this.name = 'SupabaseAuthError'; }
+  status: number;
+  constructor(status: number, message: string) { super(message); this.name = 'SupabaseAuthError'; this.status = status; }
 }
 function config() {
   if (!URL_BASE || !API_KEY) throw new SupabaseAuthError(503, 'Authentication is not configured for this deployment.');
