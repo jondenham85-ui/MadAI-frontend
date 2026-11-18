@@ -35,8 +35,9 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export async function GET() {
-  const oidcReady = Boolean(process.env.VERCEL_OIDC_TOKEN);
+export async function GET(request: Request) {
+  // Vercel Functions receive the short-lived OIDC token in this request header.
+  const oidcReady = Boolean(request.headers.get('x-vercel-oidc-token') || process.env.VERCEL_OIDC_TOKEN);
   return json(oidcReady ? 200 : 503, {
     status: oidcReady ? 'ready' : 'authentication-unavailable',
     service: 'MADSI managed inference',
