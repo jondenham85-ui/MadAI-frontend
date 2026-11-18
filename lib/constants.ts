@@ -1,7 +1,7 @@
 export const APP_NAME = "MADSI";
 
 export const APP_FULL_NAME =
-  "Madison Synthetic Intelligence";
+  "MAD Synthetic Intelligence";
 
 export const VERSION = "1.0.0";
 
