@@ -30,7 +30,7 @@ export default function SynthConsole(){
         else if(eventName==='done'){completed=true;if(typeof payload.conversationId==='string')setConversationId(payload.conversationId);}
         else if(eventName==='error')throw new Error(typeof payload.error==='string'?payload.error:'MADSI could not finish the response.');
       };
-      while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let boundary;while((boundary=buffer.indexOf('\n\n'))!==-1){const block=buffer.slice(0,boundary).replace(/\r/g,'');buffer=buffer.slice(boundary+2);handleEvent(block);}}
+      while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let boundary;while((boundary=/\r?\n\r?\n/.exec(buffer))!==null){const block=buffer.slice(0,boundary.index);buffer=buffer.slice(boundary.index+boundary[0].length);handleEvent(block);}}
       buffer+=decoder.decode();if(buffer.trim())handleEvent(buffer.replace(/\r/g,''));
       if(!completed)throw new Error(streamedAnswer?'The response ended before MADSI confirmed it was saved. Please check conversation history.':'MADSI ended the stream without a response. Please retry.');
       await refreshConversations();
