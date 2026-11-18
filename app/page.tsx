@@ -1,13 +1,52 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Header from '@/components/layout/Header';
-import SynthConsole from '@/components/synth/SynthConsole';
 import {apiRequest} from '@/services/auth';
 import {useUser} from '@/context/UserContext';
-type Health={status:string;database:string;openaiConfigured?:boolean};
+type Health={status:string;database:string};
+const systems=[
+  {index:'01',name:'Cognitive core',tag:'CONVERSE',description:'Work through complex questions, explore ideas and turn uncertainty into a clear next move.',href:'/synth',action:'Open intelligence'},
+  {index:'02',name:'Directive engine',tag:'ORGANIZE',description:'Shape goals into structured tasks, keep important work in view and pick up where you left off.',href:'/synth',action:'Create a directive'},
+  {index:'03',name:'Creation studio',tag:'CREATE',description:'Generate useful starting points for websites, tools and software—then refine the result.',href:'/synth',action:'Start creating'},
+  {index:'04',name:'Continuity layer',tag:'REMEMBER',description:'Return to saved conversations and carry useful context forward instead of starting over.',href:'/synth',action:'Continue a session'}
+] as const;
 export default function HomePage(){
   const {user}=useUser();const [health,setHealth]=useState<Health|null>(null);const [checked,setChecked]=useState(false);
-  useEffect(()=>{let active=true;const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),20000);apiRequest<Health>('/health',{signal:controller.signal}).then(data=>{if(active)setHealth(data);}).catch(()=>{}).finally(()=>{clearTimeout(timer);if(active)setChecked(true);});return()=>{active=false;clearTimeout(timer);controller.abort();};},[]);
-  const online=health?.status==='ok'&&health.database==='connected';const status=!checked?'Checking backend':!online?'Status unavailable':'Backend connected · Workspace online';
-  return <><Header/><main className="mad-main mad-home"><section className="hero-grid"><div className="hero-copy"><div className="eyebrow"><span className="small-line"/>MADSI / YOUR AI WORKSPACE</div>{user&&<p className="hero-greeting">Welcome back, {user.name||'there'}.{user.role==='OWNER'&&<> <a href="/admin">Open your owner dashboard ↗</a></>}</p>}<h1>Think bigger.<br/><span>Make it happen.</span></h1><p className="hero-description">Meet MADSI. A focused space to explore ideas, save directives, and generate source code—without switching between disconnected tools.</p><div className="hero-actions"><a className="mad-button" href="#console">Open your workspace <span aria-hidden="true">↗</span></a><a className="text-link" href="/pricing">Explore the plans <span aria-hidden="true">→</span></a></div><p className="hero-footnote">The Free plan includes 20 chats and 3 tasks per day. No payment required to create an account.</p><div className={`service-pill ${online?'is-online':''}`} role="status"><span className="status-dot"/>{status}</div></div><div className="hero-art" aria-hidden="true"><div className="orb-ring ring-one"/><div className="orb-ring ring-two"/><div className="orb-core"><span>M</span><small>MADSI</small></div><div className="orbit-label label-chat">01 / CHAT</div><div className="orbit-label label-tasks">02 / TASKS</div><div className="orbit-label label-code">03 / CODE</div><p className="art-caption">YOUR IDEAS. A CLEARER NEXT STEP.</p></div></section><section className="capability-strip" aria-label="Workspace capabilities"><article><span>01</span><div><h2>Think it through</h2><p>Ask questions and develop ideas in conversation.</p></div></article><article><span>02</span><div><h2>Keep it moving</h2><p>Save directives in one place. You stay in control.</p></div></article><article><span>03</span><div><h2>Build a starting point</h2><p>Generate website, tool and game source with an eligible plan or owner access.</p></div></article></section><section id="console" className="workspace-section"><div className="section-heading"><div><p className="eyebrow">THE WORKSPACE</p><h2>Less friction. More focus.</h2></div><p>Chat, save a task, or draft source code.<br/>Generated code is not automatically executed or deployed.</p></div><SynthConsole/></section><section className="closing-card"><div><p className="eyebrow">MAKE ROOM FOR MORE</p><h2>A plan for your next chapter.</h2><p>Start with Free. Move up when you need higher limits or source generation.</p></div><a className="mad-button" href="/pricing">Compare plans <span aria-hidden="true">→</span></a></section><footer className="site-footer"><span>MADSI<small>Your AI workspace</small></span><div><a href="#console">Workspace</a><a href="/pricing">Pricing</a><a href="/admin">Owner access</a></div></footer></main></>;
+  useEffect(()=>{let active=true;const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);apiRequest<Health>('/health',{signal:controller.signal}).then(data=>{if(active)setHealth(data);}).catch(()=>{}).finally(()=>{clearTimeout(timer);if(active)setChecked(true);});return()=>{active=false;clearTimeout(timer);controller.abort();};},[]);
+  const online=health?.status==='ok'&&health.database==='connected';
+  const systemState=!checked?'CHECKING SYSTEM':online?'CORE CONNECTION ONLINE':'CONNECTION UNVERIFIED';
+  return <><Header/><main className="mad-main si-home">
+    <div className="si-utility-bar"><span><i className="si-live-dot"/> SYNTHETIC INTELLIGENCE / SYSTEM 01</span><span className="si-system-state" role="status">{systemState}</span></div>
+    <section className="si-hero">
+      <div className="si-hero-copy">
+        <p className="eyebrow"><span className="small-line"/> MADSI · SYNTHETIC INTELLIGENCE</p>
+        {user&&<p className="hero-greeting">Welcome back, {user.name||'there'}. {user.role==='OWNER'&&<a href="/admin">Open owner command ↗</a>}</p>}
+        <h1>More than answers.<br/><span>Intelligence in motion.</span></h1>
+        <p className="si-lede">A new kind of digital workspace—built to think with you, organize what matters and help turn ideas into real work.</p>
+        <div className="si-hero-actions"><a className="mad-button" href="/synth">Enter MADSI <span aria-hidden="true">↗</span></a><a className="si-text-link" href="#systems">Explore the system <span aria-hidden="true">↓</span></a></div>
+        <div className="si-trust-line"><span>BUILT AROUND YOUR WORK</span><b/> <span>YOU SET THE DIRECTION</span><b/> <span>MADE TO EVOLVE</span></div>
+      </div>
+      <div className="si-core-stage" aria-label="MADSI synthetic intelligence core">
+        <div className="si-orbit si-orbit-a"/><div className="si-orbit si-orbit-b"/><div className="si-orbit si-orbit-c"/>
+        <div className="si-core-glow"/><div className="si-core">
+          <div className="si-core-mark">M</div><span>MADSI</span><small>SYNTHETIC INTELLIGENCE</small>
+        </div>
+        <div className="si-node si-node-one"><i/> COGNITION <small>01</small></div>
+        <div className="si-node si-node-two"><i/> DIRECTIVES <small>02</small></div>
+        <div className="si-node si-node-three"><i/> CREATION <small>03</small></div>
+        <div className="si-stage-caption"><span>CORE INTERFACE</span><span>01 / 04</span></div>
+      </div>
+    </section>
+    <section className="si-console-launch">
+      <div className="si-launch-symbol"><span>↗</span></div>
+      <div className="si-launch-copy"><p className="eyebrow">YOUR NEXT MOVE STARTS HERE</p><h2>Give an idea somewhere to go.</h2><p>Open your private workspace and work directly with MADSI.</p></div>
+      <a href="/synth" className="si-launch-link">Launch workspace <span>↗</span></a>
+    </section>
+    <section id="systems" className="si-systems">
+      <div className="si-section-head"><div><p className="eyebrow">THE MADSI SYSTEM</p><h2>One intelligence.<br/><span>Multiple ways to move forward.</span></h2></div><p>Designed as a connected system—not just a chat window.</p></div>
+      <div className="si-system-grid">{systems.map(item=><article className="si-system-card" key={item.index}><div className="si-card-top"><span>{item.index} / MODULE</span><span>{item.tag}</span></div><div className="si-module-glyph" aria-hidden="true">{item.index==='01'?'◉':item.index==='02'?'⌘':item.index==='03'?'◇':'◎'}</div><h3>{item.name}</h3><p>{item.description}</p><a href={item.href}>{item.action} <span aria-hidden="true">↗</span></a></article>)}</div>
+    </section>
+    <section className="si-principle-band"><div><p className="eyebrow">A DIFFERENT KIND OF INTELLIGENCE</p><h2>Not another tab to keep open.<br/><span>A system to build with.</span></h2></div><div className="si-principle-copy"><p>MADSI brings conversation, directives and creation into one environment. You stay in control of the goal; MADSI helps make the next step clearer.</p><a href="/pricing">Explore access and plans ↗</a></div></section>
+    <footer className="site-footer si-footer"><span>MADSI<small>FULL NAME: MAD SYNTHETIC INTELLIGENCE</small></span><div><a href="/synth">Workspace</a><a href="#systems">System modules</a><a href="/pricing">Plans</a></div></footer>
+  </main></>;
 }
