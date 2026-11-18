@@ -70,3 +70,23 @@ textarea { min-height: 130px; resize: vertical; }
 .message-heading h3 { margin: 0; }
 .copy-answer { padding: .4rem .65rem; border: 1px solid #356b72; border-radius: 999px; background: transparent; color: #b8fff5; font-size: .78rem; }
 .copy-answer:hover { border-color: #19e6d0; background: rgba(25,230,208,.1); }
+
+
+/* Synth conversation: clear speaker alignment and a persistent composer. */
+.mad-messages { display: flex; flex-direction: column; gap: .85rem; max-height: min(62vh, 680px); padding: .25rem .15rem; scroll-behavior: smooth; }
+.mad-messages article { width: fit-content; max-width: min(88%, 760px); margin: 0; padding: .9rem 1rem; border: 1px solid #244353; border-radius: 1rem; background: rgba(10,29,42,.88); }
+.mad-messages article.mad-message-user { align-self: flex-end; border-color: rgba(25,230,208,.42); border-bottom-right-radius: .3rem; background: linear-gradient(135deg,rgba(25,230,208,.15),rgba(9,35,43,.95)); }
+.mad-messages article.mad-message-assistant { align-self: flex-start; border-bottom-left-radius: .3rem; }
+.mad-messages article.mad-message-pending { display: flex; align-items: center; gap: .8rem; color: #b8fff5; }
+.mad-messages article.mad-message-pending .message-heading { flex: 0 0 auto; }
+.mad-messages article.mad-message-pending p { margin: 0; color: #a4bdcd; font-size: .9rem; }
+.mad-messages .message-heading h3 { font-size: .9rem; color: #b8fff5; }
+.mad-messages article.mad-message-user .message-heading h3 { color: #d8fffa; }
+.mad-messages article pre { font-size: .96rem; }
+.mad-form { position: sticky; bottom: 0; z-index: 5; padding: .9rem; border: 1px solid rgba(25,230,208,.3); border-radius: 1rem; background: rgba(4,16,25,.96); box-shadow: 0 -12px 30px rgba(0,0,0,.22); backdrop-filter: blur(14px); }
+.mad-form textarea { min-height: 104px; max-height: 240px; }
+@media(max-width:650px) {
+  .mad-messages { max-height: 58vh; }
+  .mad-messages article { max-width: 94%; padding: .8rem; }
+  .mad-form { padding: .7rem; }
+}
