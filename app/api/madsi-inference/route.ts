@@ -26,7 +26,7 @@ async function sha256(value: string) {
 }
 
 function workerUrl() {
-  return process.env.MADSI_CLOUDFLARE_WORKER_URL?.replace(/\/+$/, '');
+  return (process.env.MADSI_CLOUDFLARE_WORKER_URL || 'https://madsi-inference.madsi.workers.dev').replace(/\/+$/, '');
 }
 
 export async function GET() {
