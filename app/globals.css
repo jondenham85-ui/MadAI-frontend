@@ -58,3 +58,10 @@ textarea { min-height: 130px; resize: vertical; }
 .thinking-pulse { width: .65rem; height: .65rem; flex: 0 0 auto; border-radius: 50%; background: #19e6d0; box-shadow: 0 0 0 0 rgba(25,230,208,.5); animation: madsi-pulse 1.5s infinite; }
 @keyframes madsi-pulse { 0% { box-shadow: 0 0 0 0 rgba(25,230,208,.45); } 70% { box-shadow: 0 0 0 .65rem rgba(25,230,208,0); } 100% { box-shadow: 0 0 0 0 rgba(25,230,208,0); } }
 @media(max-width:760px) { .daily-spark { grid-template-columns: 1fr; } .quick-prompts { justify-content: flex-start; max-width: none; } .next-step-actions { align-items: stretch; } .next-step-actions > span { width: 100%; } }
+
+.conversation-history { display: grid; gap: .55rem; margin: 1rem 0 1.25rem; padding: 1rem; border: 1px solid #294b5b; border-radius: .8rem; background: rgba(4,17,27,.72); }
+.conversation-history > label { color: #c5e9ee; font-size: .88rem; font-weight: 700; }
+.conversation-history-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .6rem; }
+.conversation-history-row select { min-width: 0; }
+.history-error { margin: 0; color: #ffd4d9; font-size: .85rem; }
+@media(max-width:480px) { .conversation-history-row { grid-template-columns: 1fr; } .conversation-history-row button { width: 100%; } }
