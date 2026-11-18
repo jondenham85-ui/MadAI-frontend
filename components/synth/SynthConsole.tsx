@@ -25,13 +25,13 @@ export default function SynthConsole(){
       const requestId=crypto.randomUUID();
       const response=await apiStreamRequest('/synth',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:submitted,conversationId,requestId})});
       const reader=response.body!.getReader(),decoder=new TextDecoder();let buffer='',streamedAnswer='',completed=false;
-      const handleEvent=(block:string)=>{let eventName='message';const data:string[]=[];for(const line of block.split(/\\r?\\n/)){if(line.startsWith('event:'))eventName=line.slice(6).trim();else if(line.startsWith('data:'))data.push(line.slice(5).trim());}if(!data.length)return;let payload:Record<string,unknown>;try{payload=JSON.parse(data.join('\\n')) as Record<string,unknown>;}catch{return;}
+      const handleEvent=(block:string)=>{let eventName='message';const data:string[]=[];for(const line of block.split(/\r?\n/)){if(line.startsWith('event:'))eventName=line.slice(6).trim();else if(line.startsWith('data:'))data.push(line.slice(5).trim());}if(!data.length)return;let payload:Record<string,unknown>;try{payload=JSON.parse(data.join('\n')) as Record<string,unknown>;}catch{return;}
         if(eventName==='delta'&&typeof payload.delta==='string'){streamedAnswer+=payload.delta;setMessages(previous=>previous.map((item,index)=>index===previous.length-1?{...item,content:streamedAnswer}:item));}
         else if(eventName==='done'){completed=true;if(typeof payload.conversationId==='string')setConversationId(payload.conversationId);}
         else if(eventName==='error')throw new Error(typeof payload.error==='string'?payload.error:'MADSI could not finish the response.');
       };
-      while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let boundary;while((boundary=buffer.indexOf('\\n\\n'))!==-1){const block=buffer.slice(0,boundary).replace(/\\r/g,'');buffer=buffer.slice(boundary+2);handleEvent(block);}}
-      buffer+=decoder.decode();if(buffer.trim())handleEvent(buffer.replace(/\\r/g,''));
+      while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let boundary;while((boundary=buffer.indexOf('\n\n'))!==-1){const block=buffer.slice(0,boundary).replace(/\r/g,'');buffer=buffer.slice(boundary+2);handleEvent(block);}}
+      buffer+=decoder.decode();if(buffer.trim())handleEvent(buffer.replace(/\r/g,''));
       if(!completed)throw new Error(streamedAnswer?'The response ended before MADSI confirmed it was saved. Please check conversation history.':'MADSI ended the stream without a response. Please retry.');
       await refreshConversations();
     }else{const result=await apiRequest<TaskResponse>('/tasks',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:submitted,build:submittedMode==='build'})});const answer=result.directive?.result||result.note;setMessages(previous=>[...previous,{role:'MAD SI',content:answer}]);}
