@@ -26,7 +26,7 @@ async function sha256(value: string) {
 }
 
 function workerUrl() {
-  return process.env.MADSI_CLOUDFLARE_WORKER_URL?.replace(/\\/+$/, '');
+  return process.env.MADSI_CLOUDFLARE_WORKER_URL?.replace(/\/+$/, '');
 }
 
 export async function GET() {
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   if (request.headers.get('origin')) return json(403, { error: 'Forbidden' });
 
   const authorization = request.headers.get('authorization') || '';
-  if (!/^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/i.test(authorization)) {
+  if (!/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/i.test(authorization)) {
     return json(401, { error: 'Authentication required' });
   }
 
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
   };
   const requestHash = await sha256(JSON.stringify(normalized));
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\\/+$/, '');
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '');
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   const endpoint = workerUrl();
   if (!supabaseUrl || !supabaseKey) return json(503, { error: 'MADSI authentication service unavailable' });
