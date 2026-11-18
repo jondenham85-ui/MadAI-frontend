@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   if (request.headers.get('origin')) return json(403, { error: 'Forbidden' });
 
   const authorization = request.headers.get('authorization') || '';
-  if (!/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/i.test(authorization)) {
+  if (!/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/i.test(authorization)) {
     return json(401, { error: 'Authentication required' });
   }
 
