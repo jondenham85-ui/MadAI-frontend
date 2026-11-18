@@ -35,6 +35,15 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
+export async function GET() {
+  const oidcReady = Boolean(process.env.VERCEL_OIDC_TOKEN);
+  return json(oidcReady ? 200 : 503, {
+    status: oidcReady ? 'ready' : 'authentication-unavailable',
+    service: 'MADSI managed inference',
+    authentication: oidcReady ? 'managed' : 'unavailable',
+  });
+}
+
 export async function POST(request: Request) {
   // This endpoint is a server-to-server hop from the authenticated MADSI API.
   // Browser-origin requests are not accepted.
