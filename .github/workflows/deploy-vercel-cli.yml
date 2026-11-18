@@ -1,53 +1,12 @@
-name: MADSI release validation and Vercel CLI preflight
+name: MADSI release validation
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['.github/workflows/deploy-vercel-cli.yml']
 permissions:
   contents: read
 concurrency:
-  group: madsi-vercel-cli-production
+  group: madsi-release-validation
   cancel-in-progress: false
 jobs:
-  vercel-preflight:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID || vars.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID || vars.VERCEL_PROJECT_ID }}
-    steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Check credential configuration without exposing values
-        shell: bash
-        run: |
-          missing=0
-          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
-            if [ -z "${!key}" ]; then
-              echo "::error::Missing configuration: $key"
-              missing=1
-            fi
-          done
-          exit "$missing"
-      - name: Check CLI identity and project access
-        shell: bash
-        run: |
-          set -euo pipefail
-          npx --yes vercel@latest whoami --token "$VERCEL_TOKEN"
-          npx --yes vercel@latest project inspect "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
-      - name: List existing domain aliases for ownership review
-        shell: bash
-        run: |
-          set -euo pipefail
-          npx --yes vercel@latest alias ls --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
-      - name: Record preflight boundary
-        if: always()
-        shell: bash
-        run: |
-          printf '%s\n' 'Vercel CLI preflight only. No project creation, linking, deployment, alias assignment, environment change, or database change is requested by this job.' 'Review job logs for missing configuration, authentication errors, project identity and existing aliases. A successful preflight does not prove application health or authorize a release.' >> "$GITHUB_STEP_SUMMARY"
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -74,5 +33,5 @@ jobs:
         if: always()
         shell: bash
         run: |
-          printf '%s\n' 'Production deployment is blocked. This workflow performs source validation only.' 'Inspect individual step outcomes; no live acceptance tests are performed here.' 'Before restoring deployment: verify the existing custom-domain project, production backend, credentials and acceptance evidence, then obtain release approval.' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\\n' 'Production deployment is blocked. This workflow performs source validation only.' 'Inspect individual step outcomes; no live acceptance tests are performed here.' 'Before restoring deployment: verify the existing custom-domain project, production backend, credentials and acceptance evidence, then obtain release approval.' >> "$GITHUB_STEP_SUMMARY"
           echo '::notice::No deployment requested. No live acceptance or launch readiness claimed.'
