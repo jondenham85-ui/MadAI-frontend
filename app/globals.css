@@ -65,3 +65,8 @@ textarea { min-height: 130px; resize: vertical; }
 .conversation-history-row select { min-width: 0; }
 .history-error { margin: 0; color: #ffd4d9; font-size: .85rem; }
 @media(max-width:480px) { .conversation-history-row { grid-template-columns: 1fr; } .conversation-history-row button { width: 100%; } }
+
+.message-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.message-heading h3 { margin: 0; }
+.copy-answer { padding: .4rem .65rem; border: 1px solid #356b72; border-radius: 999px; background: transparent; color: #b8fff5; font-size: .78rem; }
+.copy-answer:hover { border-color: #19e6d0; background: rgba(25,230,208,.1); }
