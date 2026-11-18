@@ -70,6 +70,45 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
     if (cancel) options.signal?.removeEventListener('abort', cancel);
   }
 }
+export async function apiStreamRequest(path: string, options: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(options.headers);
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  headers.set('Accept', 'text/event-stream');
+  const signal = options.signal;
+  if (signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+  let auth: Awaited<ReturnType<typeof authClient>> | null = null, token: string | null = null;
+  if (typeof window !== 'undefined') {
+    try { auth = await authClient(); token = await auth.getAccessToken(); }
+    catch (error) { if (isAuthError(error)) throw new ApiError(error.status, { error: error.message }); throw error; }
+    if (!token) throw new ApiError(401, { error: 'Please sign in to continue.' });
+  }
+  const send = async (accessToken?: string) => {
+    const requestHeaders = new Headers(headers);
+    if (accessToken) requestHeaders.set('Authorization', `Bearer ${accessToken}`);
+    try {
+      return await fetch(`${API_BASE}${path}`, { ...options, signal, credentials: 'include', cache: 'no-store', headers: requestHeaders });
+    } catch {
+      if (signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
+      throw new ApiError(503, { error: 'Cannot reach MADSI. Check your connection and try again.' });
+    }
+  };
+  let response = await send(token ?? undefined);
+  if (response.status === 401 && token && auth) {
+    let renewed;
+    try { renewed = await auth.refreshSession(token); }
+    catch (error) { if (isAuthError(error)) throw new ApiError(error.status, { error: error.message }); throw error; }
+    if (renewed?.access_token) { response = await send(renewed.access_token); if (response.status === 401) auth.clearSession(); }
+    else auth.clearSession();
+  }
+  if (!response.ok) {
+    const payload = await readPayload(response);
+    throw new ApiError(response.status, { error: typeof payload.error === 'string' ? payload.error : undefined, plan: typeof payload.plan === 'string' ? payload.plan : undefined, limit: typeof payload.limit === 'number' || typeof payload.limit === 'string' ? payload.limit : undefined });
+  }
+  if (!response.headers.get('content-type')?.toLowerCase().includes('text/event-stream') || !response.body) {
+    throw new ApiError(502, { error: 'MADSI returned an invalid streaming response.' });
+  }
+  return response;
+}
 export async function login(email: string, password: string) {
   const auth = await authClient();
   try {
