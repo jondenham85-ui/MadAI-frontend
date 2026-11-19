@@ -2,10 +2,18 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useUser } from '@/context/UserContext';
 import { apiRequest } from '@/services/auth';
+import { getAccessToken } from '@/lib/supabase';
 import { OWNER_COMMANDS, requestAgents, readRun, type Agent, type Run } from '@/lib/owner-agents.mjs';
 type Registry = Record<string, { name: string; capabilities: string[] }>;
 type Detail = { run: Run; events: unknown[] };
 const explain = (error: unknown) => error instanceof Error ? error.message : 'Agent request failed';
+async function agentRequest<T>(path: string, options: RequestInit = {}) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('Invalid or expired session. Please sign in again.');
+  const headers = new Headers(options.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+  return requestAgents<T>(path, { ...options, headers });
+}
 export default function AgentCommandCenter() {
   const { user, loading } = useUser();
   const [verified, setVerified] = useState(false);
@@ -18,12 +26,12 @@ export default function AgentCommandCenter() {
   const [error, setError] = useState('');
   const requestId = useRef<string | null>(null);
   const refresh = useCallback(async () => {
-    const result = await requestAgents<{ runs: unknown[] }>('/runs');
+    const result = await agentRequest<{ runs: unknown[] }>('/runs');
     if (!Array.isArray(result.runs)) throw new Error('Saved runs are unavailable');
     setRuns(result.runs.map(readRun));
   }, []);
   const inspect = useCallback(async (id: string) => {
-    const result = await requestAgents<{run: unknown; events: unknown[]}>(`/runs/${id}`);
+    const result = await agentRequest<{run: unknown; events: unknown[]}>(`/runs/${id}`);
     if (!Array.isArray(result.events)) throw new Error('Execution logs are unavailable');
     setDetail({run: readRun(result.run), events: result.events});
   }, []);
@@ -31,7 +39,7 @@ export default function AgentCommandCenter() {
     setVerified(false); setError(''); setBusy(true);
     try {
       await apiRequest('/admin/system');
-      const response = await requestAgents<{agents: Registry}>('/registry');
+      const response = await agentRequest<{agents: Registry}>('/registry');
       if (!response.agents || ['core','revenue','funnel','task'].some(key => !response.agents[key] || typeof response.agents[key].name !== 'string' || !Array.isArray(response.agents[key].capabilities))) throw new Error('The four-agent registry is incomplete');
       await refresh(); setRegistry(response.agents); setVerified(true);
     } catch (failure) { setError(explain(failure)); }
@@ -53,7 +61,7 @@ export default function AgentCommandCenter() {
   }, [verified, detail?.run.id, detail?.run.status, inspect]);
   async function execute(id: string) {
     setBusy(true); setError('');
-    try { await requestAgents(`/runs/${id}/execute`, {method:'POST',body:'{}'}); await inspect(id); await refresh(); }
+    try { await agentRequest(`/runs/${id}/execute`, {method:'POST',body:'{}'}); await inspect(id); await refresh(); }
     catch (failure) { setError(explain(failure)); await inspect(id).catch(() => undefined); }
     finally { setBusy(false); }
   }
@@ -62,7 +70,7 @@ export default function AgentCommandCenter() {
     setBusy(true); setError('');
     try {
       requestId.current ||= crypto.randomUUID();
-      const result = await requestAgents<{run: unknown}>('/runs', {method:'POST',body:JSON.stringify({agent,prompt:prompt.trim(),requestId:requestId.current})});
+      const result = await agentRequest<{run: unknown}>('/runs', {method:'POST',body:JSON.stringify({agent,prompt:prompt.trim(),requestId:requestId.current})});
       const run = readRun(result.run); requestId.current = null;
       setDetail({run,events:[]}); await refresh();
       if (['QUEUED','PENDING','FAILED'].includes(run.status)) await execute(run.id);
@@ -72,7 +80,7 @@ export default function AgentCommandCenter() {
   }
   async function cancel(id: string) {
     setBusy(true); setError('');
-    try { await requestAgents(`/runs/${id}/cancel`, {method:'POST',body:'{}'}); await inspect(id); await refresh(); }
+    try { await agentRequest(`/runs/${id}/cancel`, {method:'POST',body:'{}'}); await inspect(id); await refresh(); }
     catch (failure) { setError(explain(failure)); }
     finally { setBusy(false); }
   }
