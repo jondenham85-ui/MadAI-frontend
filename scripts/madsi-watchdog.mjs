@@ -1,6 +1,7 @@
 export const TARGETS = Object.freeze([
   Object.freeze({ name: 'homepage', url: 'https://www.madmadisonai.com/', kind: 'html' }),
   Object.freeze({ name: 'api-health', url: 'https://www.madmadisonai.com/api/backend/api/health', kind: 'json' }),
+  Object.freeze({ name: 'inference-worker-health', url: 'https://madsi-inference.madsi.workers.dev/health', kind: 'worker-json' }),
 ]);
 async function readBody(response) {
   if (!response.body) return '';
@@ -21,7 +22,7 @@ async function readBody(response) {
 }
 export async function probe(target, fetcher = fetch) {
   try {
-    const response = await fetcher(target.url, { method: 'GET', redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(15000), headers: { Accept: target.kind === 'json' ? 'application/json' : 'text/html' } });
+    const response = await fetcher(target.url, { method: 'GET', redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(15000), headers: { Accept: target.kind === 'html' ? 'text/html' : 'application/json' } });
     if (response.status !== 200) return { name: target.name, ok: false, status: response.status, reason: 'HTTP_STATUS' };
     const text = await readBody(response);
     let ok = false;
@@ -29,6 +30,7 @@ export async function probe(target, fetcher = fetch) {
     else if (/application\/json/i.test(response.headers.get('content-type') || '')) {
       const value = JSON.parse(text);
       ok = !!value && !Array.isArray(value) && typeof value === 'object' && !value.error && value.ok !== false && value.success !== false && (value.ok === true || value.success === true || ['ok','healthy'].includes(value.status));
+      if (target.kind === 'worker-json') ok = value?.status === 'ready' && value?.provider === 'Cloudflare Workers AI' && typeof value?.model === 'string' && value.model.length > 0;
     }
     return { name: target.name, ok, status: response.status, reason: ok ? 'PASS' : 'CONTENT_OR_HEALTH_CONTRACT' };
   } catch { return { name: target.name, ok: false, reason: 'NETWORK_TIMEOUT_OR_INVALID_BODY' }; }
