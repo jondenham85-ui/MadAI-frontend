@@ -1,4 +1,4 @@
-export type Agent = 'core' | 'revenue' | 'funnel' | 'task';
+export type Agent = 'core' | 'revenue' | 'funnel' | 'task' | 'repository';
 export type Run = { id: string; agent: string; status: string; prompt?: string; result?: unknown; error?: string; created_at?: string };
 export const OWNER_COMMANDS: ReadonlyArray<Readonly<{id: string; title: string; agent: Agent; prompt: string}>>;
 export class AgentApiError extends Error { status: number; constructor(status: number, message: string); }
