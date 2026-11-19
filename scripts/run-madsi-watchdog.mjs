@@ -10,9 +10,9 @@ console.log(JSON.stringify(evidence));
 const token = process.env.GH_TOKEN;
 if (!token) throw new Error('Incident token unavailable');
 const api = async (method, path, body) => {
-  const allowed = (method === 'GET' && /^\\/issues\\?state=open&per_page=100&page=\\d+$/.test(path)) ||
+  const allowed = (method === 'GET' && /^\/issues\?state=open&per_page=100&page=\d+$/.test(path)) ||
     (method === 'POST' && path === '/issues') ||
-    (method === 'PATCH' && /^\\/issues\\/\\d+$/.test(path));
+    (method === 'PATCH' && /^\/issues\/\d+$/.test(path));
   if (!allowed) throw new Error('Operation not allowed');
   const response = await fetch(`https://api.github.com/repos/${REPO}${path}`, { method, redirect: 'error', signal: AbortSignal.timeout(15000), headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' }, ...(body ? { body: JSON.stringify(body) } : {}) });
   if (!response.ok) throw new Error(`Incident API failed with HTTP ${response.status}`);
