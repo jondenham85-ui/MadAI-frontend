@@ -22,7 +22,7 @@ async function readBody(response) {
 }
 export async function probe(target, fetcher = fetch) {
   try {
-    const response = await fetcher(target.url, { method: 'GET', redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(15000), headers: { Accept: target.kind === 'json' ? 'application/json' : 'text/html' } });
+    const response = await fetcher(target.url, { method: 'GET', redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(15000), headers: { Accept: target.kind === 'html' ? 'text/html' : 'application/json' } });
     if (response.status !== 200) return { name: target.name, ok: false, status: response.status, reason: 'HTTP_STATUS' };
     const text = await readBody(response);
     let ok = false;
