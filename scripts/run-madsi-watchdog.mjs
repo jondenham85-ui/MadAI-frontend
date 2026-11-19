@@ -4,7 +4,7 @@ const REPO = 'jondenham85-ui/MadAI-frontend';
 if (process.env.GITHUB_REPOSITORY !== REPO || process.env.GITHUB_REF !== 'refs/heads/main') throw new Error('Watchdog is restricted to the designated repository main branch');
 const report = await inspectSite();
 await mkdir('watchdog-report', { recursive: true });
-const evidence = { at: new Date().toISOString(), commit: process.env.GITHUB_SHA, ...report, scope: 'Homepage and anonymous API health only; not complete product acceptance', repairsExecuted: false };
+const evidence = { at: new Date().toISOString(), commit: process.env.GITHUB_SHA, ...report, scope: 'Homepage, backend API health, MADSI inference readiness proxy, and direct Cloudflare worker health; does not execute authenticated Synth prompts or verify billing/data writes', repairsExecuted: false };
 await writeFile('watchdog-report/health.json', JSON.stringify(evidence, null, 2));
 console.log(JSON.stringify(evidence));
 if (!report.healthy) {
