@@ -1,6 +1,8 @@
 export const TARGETS = Object.freeze([
   Object.freeze({ name: 'homepage', url: 'https://www.madmadisonai.com/', kind: 'html' }),
   Object.freeze({ name: 'api-health', url: 'https://www.madmadisonai.com/api/backend/api/health', kind: 'json' }),
+  Object.freeze({ name: 'inference-readiness', url: 'https://www.madmadisonai.com/api/madsi-inference', kind: 'ready-json' }),
+  Object.freeze({ name: 'cloudflare-worker-health', url: 'https://madsi-inference.madsi.workers.dev/health', kind: 'ready-json' }),
 ]);
 async function readBody(response) {
   if (!response.body) return '';
@@ -28,7 +30,8 @@ export async function probe(target, fetcher = fetch) {
     if (target.kind === 'html') ok = /text\/html/i.test(response.headers.get('content-type') || '') && /MADSI|MAD\s+Madison\s+AI/i.test(text);
     else if (/application\/json/i.test(response.headers.get('content-type') || '')) {
       const value = JSON.parse(text);
-      ok = !!value && !Array.isArray(value) && typeof value === 'object' && !value.error && value.ok !== false && value.success !== false && (value.ok === true || value.success === true || ['ok','healthy'].includes(value.status));
+      const healthyStatus = target.kind === 'ready-json' ? ['ready','ok','healthy'].includes(value?.status) : ['ok','healthy'].includes(value?.status);
+      ok = !!value && !Array.isArray(value) && typeof value === 'object' && !value.error && value.ok !== false && value.success !== false && (value.ok === true || value.success === true || healthyStatus);
     }
     return { name: target.name, ok, status: response.status, reason: ok ? 'PASS' : 'CONTENT_OR_HEALTH_CONTRACT' };
   } catch { return { name: target.name, ok: false, reason: 'NETWORK_TIMEOUT_OR_INVALID_BODY' }; }
@@ -49,7 +52,7 @@ export async function ensureIncident(report, api, runUrl) {
     const existing = rows.find(row => !row.pull_request && row.body?.startsWith(INCIDENT_MARKER));
     if (existing) return { action: 'existing', number: existing.number };
     if (rows.length < 100) {
-      const created = await api('POST', '/issues', { title: '[MADSI] Production health incident - investigation required', body: `${INCIDENT_MARKER}\nRepeated production probes failed.\n\n${JSON.stringify(report, null, 2)}\n\nEvidence: ${runUrl}\n\nTask: diagnose the failed checks, inspect deployment and backend logs, prepare a tested repair, and obtain approval before production changes.\n\nThis watchdog has not executed a repair, deployed code, or verified login, AI, billing or data persistence.` });
+      const created = await api('POST', '/issues', { title: '[MADSI] Production health incident - investigation required', body: `${INCIDENT_MARKER}\nRepeated production probes failed.\n\n${JSON.stringify(report, null, 2)}\n\nEvidence: ${runUrl}\n\nTask: diagnose the failed checks in order (homepage, API health, MADSI inference readiness proxy, Cloudflare worker health); inspect the matching deployment and backend/worker logs; identify whether the issue is availability, authentication, model execution, or response parsing; prepare a regression-tested repair. Never claim AI is healthy from a health endpoint alone. Obtain owner approval before production changes.\n\nThis watchdog has not executed a repair, deployed code, or verified login, AI, billing or data persistence.` });
       if (!Number.isInteger(created.number)) throw new Error('Incident creation was not confirmed');
       return { action: 'created', number: created.number };
     }
