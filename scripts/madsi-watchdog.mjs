@@ -35,20 +35,29 @@ export async function probe(target, fetcher = fetch) {
 }
 export async function inspectSite(fetcher = fetch, pause = () => new Promise(resolve => setTimeout(resolve, 2000))) {
   const first = await Promise.all(TARGETS.map(target => probe(target, fetcher)));
-  if (first.every(check => check.ok)) return { healthy: true, transient: false, checks: first };
   await pause();
   const second = await Promise.all(TARGETS.map(target => probe(target, fetcher)));
-  return { healthy: second.every(check => check.ok), transient: second.every(check => check.ok), checks: second, previousChecks: first };
+  const firstHealthy = first.every(check => check.ok);
+  const healthy = second.every(check => check.ok);
+  const confirmed = firstHealthy && healthy;
+  return { healthy, confirmed, transient: !firstHealthy && healthy, checks: second, previousChecks: first };
 }
 export const INCIDENT_MARKER = '<!-- madsi-production-watchdog-v1 -->';
 export async function ensureIncident(report, api, runUrl) {
-  if (report.healthy) return { action: 'none' };
   for (let page = 1; page <= 10; page++) {
     const rows = await api('GET', `/issues?state=open&per_page=100&page=${page}`);
     if (!Array.isArray(rows)) throw new Error('Invalid incident-list response');
     const existing = rows.find(row => !row.pull_request && row.body?.startsWith(INCIDENT_MARKER));
-    if (existing) return { action: 'existing', number: existing.number };
+    if (existing) {
+      if (report.healthy && report.confirmed) {
+        const closed = await api('PATCH', `/issues/${existing.number}`, { state: 'closed', state_reason: 'completed' });
+        if (!closed || closed.state !== 'closed') throw new Error('Incident resolution was not confirmed');
+        return { action: 'resolved', number: existing.number };
+      }
+      return { action: 'existing', number: existing.number };
+    }
     if (rows.length < 100) {
+      if (report.healthy) return { action: 'none' };
       const created = await api('POST', '/issues', { title: '[MADSI] Production health incident - investigation required', body: `${INCIDENT_MARKER}\nRepeated production probes failed.\n\n${JSON.stringify(report, null, 2)}\n\nEvidence: ${runUrl}\n\nTask: diagnose the failed checks, inspect deployment and backend logs, prepare a tested repair, and obtain approval before production changes.\n\nThis watchdog has not executed a repair, deployed code, or verified login, AI, billing or data persistence.` });
       if (!Number.isInteger(created.number)) throw new Error('Incident creation was not confirmed');
       return { action: 'created', number: created.number };
