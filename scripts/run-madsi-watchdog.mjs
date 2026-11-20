@@ -1,10 +1,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { inspectSite, ensureIncident } from './madsi-watchdog.mjs';
+import { diagnoseReport } from './madsi-diagnostics.mjs';
 const REPO = 'jondenham85-ui/MadAI-frontend';
 if (process.env.GITHUB_REPOSITORY !== REPO || process.env.GITHUB_REF !== 'refs/heads/main') throw new Error('Watchdog is restricted to the designated repository main branch');
 const report = await inspectSite();
 await mkdir('watchdog-report', { recursive: true });
-const evidence = { at: new Date().toISOString(), commit: process.env.GITHUB_SHA, ...report, scope: 'Homepage and anonymous API health only; not complete product acceptance', repairsExecuted: false };
+const diagnostics = diagnoseReport(report);
+const evidence = { at: new Date().toISOString(), commit: process.env.GITHUB_SHA, ...report, diagnostics, scope: 'Homepage, anonymous API health, and Cloudflare Worker readiness only; not authenticated inference or complete product acceptance', repairsExecuted: false };
 await writeFile('watchdog-report/health.json', JSON.stringify(evidence, null, 2));
 console.log(JSON.stringify(evidence));
 const token = process.env.GH_TOKEN;
