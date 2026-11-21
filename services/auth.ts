@@ -17,8 +17,10 @@ async function readPayload(response: Response): Promise<Record<string, unknown>>
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ApiError(response.ok ? 502 : response.status, { error: 'The server returned an invalid response' });
   return value as Record<string, unknown>;
 }
-export async function apiRequest<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
-  const controller = new AbortController(), headers = new Headers(options.headers);
+export type ApiRequestOptions = RequestInit & { public?: boolean };
+export async function apiRequest<T = unknown>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const { public: isPublic = false, ...requestOptions } = options;
+  const controller = new AbortController(), headers = new Headers(requestOptions.headers);
   if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   let timer: ReturnType<typeof setTimeout> | undefined, cancel: (() => void) | undefined;
   const deadline = new Promise<never>((_, reject) => {
@@ -30,7 +32,7 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
   const work = async (): Promise<T> => {
     if (controller.signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
     let auth: Awaited<ReturnType<typeof authClient>> | null = null, token: string | null = null;
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !isPublic) {
       try { auth = await authClient(); token = await auth.getAccessToken(); }
       catch (error) { if (isAuthError(error)) throw new ApiError(error.status, { error: error.message }); throw error; }
       if (!token) throw new ApiError(401, { error: 'Please sign in to continue.' });
@@ -40,7 +42,7 @@ export async function apiRequest<T = unknown>(path: string, options: RequestInit
       const requestHeaders = new Headers(headers);
       if (accessToken) requestHeaders.set('Authorization', `Bearer ${accessToken}`);
       try {
-        return await fetch(`${API_BASE}${path}`, { ...options, signal: controller.signal, credentials: 'include', cache: 'no-store', headers: requestHeaders });
+        return await fetch(`${API_BASE}${path}`, { ...requestOptions, signal: controller.signal, credentials: 'include', cache: 'no-store', headers: requestHeaders });
       } catch {
         if (controller.signal.aborted) {
           if (options.signal?.aborted) throw new DOMException('Request cancelled', 'AbortError');
