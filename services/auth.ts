@@ -23,11 +23,16 @@ export async function apiRequest<T = unknown>(path: string, options: ApiRequestO
   const controller = new AbortController(), headers = new Headers(requestOptions.headers);
   if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   let timer: ReturnType<typeof setTimeout> | undefined, cancel: (() => void) | undefined;
+  const requestMethod = (requestOptions.method || 'GET').toUpperCase();
+  const isLongRunningAIRequest = requestMethod === 'POST' && (
+    ['/tasks', '/operations'].includes(path) || /^\/projects\/[^/]+\/generate$/.test(path)
+  );
+  const requestTimeoutMs = isLongRunningAIRequest ? 140000 : 125000;
   const deadline = new Promise<never>((_, reject) => {
     cancel = () => { reject(new DOMException('Request cancelled', 'AbortError')); controller.abort(); };
     if (options.signal?.aborted) cancel();
     else options.signal?.addEventListener('abort', cancel, { once: true });
-    timer = setTimeout(() => { reject(new ApiError(504, { error: 'The request timed out. Check your conversation history before retrying.' })); controller.abort(); }, 125000);
+    timer = setTimeout(() => { reject(new ApiError(504, { error: 'The request timed out. Check your conversation history before retrying.' })); controller.abort(); }, requestTimeoutMs);
   });
   const work = async (): Promise<T> => {
     if (controller.signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
