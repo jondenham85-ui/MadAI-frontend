@@ -63,3 +63,13 @@ test('Workspace preview inlines saved styles.css and script.js', () => {
   assert.match(source, /file\.path==='script\.js'/);
   assert.match(source, /data-madsi-preview/);
 });
+
+test('Supabase API routes allow long-running AI requests without the old 85-second cutoff', () => {
+  const proxy = fs.readFileSync(path.join(__dirname, '../lib/supabase-proxy.mjs'), 'utf8');
+  assert.match(proxy, /AbortSignal\.timeout\(115000\)/);
+  assert.doesNotMatch(proxy, /AbortSignal\.timeout\(85000\)/);
+  for (const route of ['../app/api/backend/[...path]/route.ts', '../app/api/agents/[...path]/route.ts']) {
+    const source = fs.readFileSync(path.join(__dirname, route), 'utf8');
+    assert.match(source, /export const maxDuration = 120/);
+  }
+});
