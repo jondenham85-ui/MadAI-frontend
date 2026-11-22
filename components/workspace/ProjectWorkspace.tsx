@@ -123,7 +123,30 @@ export default function ProjectWorkspace(){
   const previewHtml=useMemo(()=>{
     const html=files.find(file=>file.path==='index.html')?.content||'';
     if(!html)return '<main style="font-family:system-ui;padding:2rem;color:#d8f7f2;background:#07131b"><h2>No index.html yet</h2><p>Create and save an index.html file to preview your website.</p></main>';
-    return html;
+    const css=files.find(file=>file.path==='styles.css')?.content||'';
+    const js=files.find(file=>file.path==='script.js')?.content||'';
+    let document=html;
+    if(css){
+      const styleTag='<style data-madsi-preview>'+css.replace(/<\/style/gi,'<\\/style')+'</style>';
+      const styleLink=/<link\b(?=[^>]*\brel\s*=\s*["']?stylesheet["']?)(?=[^>]*\bhref\s*=\s*["'](?:\.\/)?styles\.css["'])[^>]*>/i;
+      if(styleLink.test(document))document=document.replace(styleLink,styleTag);
+      else if(/<\/head>/i.test(document))document=document.replace(/<\/head>/i,styleTag+'</head>');
+      else document=styleTag+document;
+    }
+    if(js){
+      const safeScript=js.replace(/<\/script/gi,'<\\/script');
+      const scriptLink=/<script\b([^>]*\bsrc\s*=\s*["'](?:\.\/)?script\.js["'][^>]*)>\s*<\/script>/i;
+      const scriptMatch=document.match(scriptLink);
+      if(scriptMatch){
+        const attributes=(/\bdefer\b/i.test(scriptMatch[1])?' defer':'')+(/\basync\b/i.test(scriptMatch[1])?' async':'');
+        document=document.replace(scriptLink,'<script'+attributes+' data-madsi-preview>'+safeScript+'</script>');
+      }else{
+        const scriptTag='<script data-madsi-preview>'+safeScript+'</script>';
+        if(/<\/body>/i.test(document))document=document.replace(/<\/body>/i,scriptTag+'</body>');
+        else document+=scriptTag;
+      }
+    }
+    return document;
   },[files]);
   async function refreshFile(){
     if(!active)return;
@@ -184,6 +207,6 @@ export default function ProjectWorkspace(){
         </>}
       </section>
     </div>
-    <p className="project-workspace-footnote">Workspace storage is connected. Project generation runs in the background and saves files before reporting completion. Preview reads saved source; it does not publish or deploy the project.</p>
+    <p className="project-workspace-footnote">Workspace storage is connected. Project generation runs in the background and saves files before reporting completion. Preview reads saved index.html and inlines saved styles.css and script.js when present; it does not publish or deploy the project.</p>
   </section>;
 }
