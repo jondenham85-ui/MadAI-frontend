@@ -49,3 +49,27 @@ test('rewrite and server proxy share the authoritative production target', () =>
   assert.match(proxy, /import ROOT from '\.\/production-backend\.cjs'/);
   assert.doesNotMatch(proxy, /https:\/\/[a-z]+\.supabase\.co/);
 });
+
+test('Synth Console lets background generation use its full polling window', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../components/synth/SynthConsole.tsx'), 'utf8');
+  assert.match(source, /submittedMode==='build'\?undefined:setTimeout/);
+  assert.match(source, /job\.status==='completed'/);
+  assert.match(source, /saved index\.html could not be verified/);
+});
+
+test('Workspace preview inlines saved styles.css and script.js', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../components/workspace/ProjectWorkspace.tsx'), 'utf8');
+  assert.match(source, /file\.path==='styles\.css'/);
+  assert.match(source, /file\.path==='script\.js'/);
+  assert.match(source, /data-madsi-preview/);
+});
+
+test('Supabase API routes allow long-running AI requests without the old 85-second cutoff', () => {
+  const proxy = fs.readFileSync(path.join(__dirname, '../lib/supabase-proxy.mjs'), 'utf8');
+  assert.match(proxy, /AbortSignal\.timeout\(115000\)/);
+  assert.doesNotMatch(proxy, /AbortSignal\.timeout\(85000\)/);
+  for (const route of ['../app/api/backend/[...path]/route.ts', '../app/api/agents/[...path]/route.ts']) {
+    const source = fs.readFileSync(path.join(__dirname, route), 'utf8');
+    assert.match(source, /export const maxDuration = 120/);
+  }
+});

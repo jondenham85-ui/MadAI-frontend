@@ -1,7 +1,7 @@
 import { createApiProxy } from '@/lib/supabase-proxy.mjs';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 90;
+export const maxDuration = 120;
 const proxy = createApiProxy('agents');
 type Context = { params: Promise<{ path: string[] }> };
 async function handle(request: Request, context: Context) {
