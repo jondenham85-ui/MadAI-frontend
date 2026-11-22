@@ -27,7 +27,7 @@ export async function apiRequest<T = unknown>(path: string, options: ApiRequestO
     cancel = () => { reject(new DOMException('Request cancelled', 'AbortError')); controller.abort(); };
     if (options.signal?.aborted) cancel();
     else options.signal?.addEventListener('abort', cancel, { once: true });
-    timer = setTimeout(() => { reject(new ApiError(504, { error: 'The request timed out. Check your conversation history before retrying.' })); controller.abort(); }, 90000);
+    timer = setTimeout(() => { reject(new ApiError(504, { error: 'The request timed out. Check your conversation history before retrying.' })); controller.abort(); }, 125000);
   });
   const work = async (): Promise<T> => {
     if (controller.signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
