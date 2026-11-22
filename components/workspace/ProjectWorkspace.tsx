@@ -6,6 +6,7 @@ type Project={id:string;name:string;description:string;status:string;updatedAt:s
 type ProjectFile={id:string;path:string;content?:string;language:string;mimeType:string};
 type ProjectList={projects:Project[]};
 type FileList={files:ProjectFile[]};
+type GenerationJob={id:string;status:'queued'|'processing'|'completed'|'failed';files?:Array<{path:string}>;errorMessage?:string|null};
 
 export default function ProjectWorkspace(){
   const [projects,setProjects]=useState<Project[]>([]);
@@ -56,12 +57,28 @@ export default function ProjectWorkspace(){
   }
   async function generateProject(){
     if(!active||!buildPrompt.trim()||busy)return;
-    setBusy(true);setError('');setNotice('MADSI is generating your project files…');setPreview(false);
+    const project=active;setBusy(true);setError('');setNotice('MADSI is starting your background generation…');setPreview(false);
     try{
       const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';
-      const result=await apiRequest<{success:boolean;project:Project;files:Array<{path:string}>;message:string}>('/projects/'+encodeURIComponent(active.id)+'/generate',{method:'POST',body:JSON.stringify({prompt:buildPrompt.trim(),timezone,requestId:crypto.randomUUID()})});
-      const saved=await apiRequest<FileList>('/projects/'+encodeURIComponent(active.id)+'/files');
-      setActive(result.project);setFiles(saved.files||[]);setSelected(null);setContent('');setNotice(result.message+' '+(result.files?.length||0)+' files saved.');
+      const started=await apiRequest<{success:boolean;job:GenerationJob;message:string}>('/projects/'+encodeURIComponent(project.id)+'/generate',{method:'POST',body:JSON.stringify({prompt:buildPrompt.trim(),timezone,requestId:crypto.randomUUID()})});
+      const deadline=Date.now()+180000;
+      setNotice('MADSI is building in the background. You can keep this screen open; progress will update here.');
+      while(Date.now()<deadline){
+        await new Promise(resolve=>setTimeout(resolve,2500));
+        const state=await apiRequest<{job:GenerationJob|null}>('/projects/'+encodeURIComponent(project.id)+'/generation/'+encodeURIComponent(started.job.id));
+        if(!state.job)throw new Error('Generation status could not be found. Refresh the project to check its saved files.');
+        if(state.job.status==='failed')throw new Error(state.job.errorMessage||'MADSI could not complete this generation. Your existing saved files were preserved.');
+        if(state.job.status==='completed'){
+          const saved=await apiRequest<FileList>('/projects/'+encodeURIComponent(project.id)+'/files');
+          setActive(current=>current?.id===project.id?{...current,status:'ready'}:current);
+          setProjects(current=>current.map(item=>item.id===project.id?{...item,status:'ready'}:item));
+          setFiles(saved.files||[]);setSelected(null);setContent('');
+          setNotice('Generation completed. '+(state.job.files?.length||saved.files?.length||0)+' files were saved to this project.');
+          return;
+        }
+        setNotice(state.job.status==='queued'?'MADSI has queued your build…':'MADSI is still generating. Your project files are being saved when the build finishes…');
+      }
+      setNotice('MADSI is still processing in the background. Your project is safe; tap Refresh after a moment to check for saved files.');
     }catch(e){setError(e instanceof Error?e.message:'MADSI could not generate this project.');setNotice('');}
     finally{setBusy(false);}
   }
@@ -127,6 +144,6 @@ export default function ProjectWorkspace(){
         </>}
       </section>
     </div>
-    <p className="project-workspace-footnote">Workspace storage is connected. AI-generated project creation and one-click publishing are the next integration steps; saving a project here does not claim that code has been executed or deployed.</p>
+    <p className="project-workspace-footnote">Workspace storage is connected. Project generation runs in the background and saves files before reporting completion. Preview reads saved source; it does not publish or deploy the project.</p>
   </section>;
 }
