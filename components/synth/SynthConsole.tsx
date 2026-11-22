@@ -38,8 +38,8 @@ export default function SynthConsole(){
       if(!completed)throw new Error(streamedAnswer?'The response ended before MADSI confirmed it was saved. Please check conversation history.':'MADSI ended the stream without a response. Please retry.');
       await refreshConversations();await refreshUsage();
     }else if(submittedMode==='build'){
-      const named=submitted.match(/\\b(?:called|named)\\s+["']?([^"'\\n,.!?]{2,80})/i);
-      const projectName=(named?.[1]?.trim()||submitted.replace(/\\s+/g,' ').slice(0,64)).trim()||'New MADSI Project';
+      const named=submitted.match(/\b(?:called|named)\s+["']?([^"'\n,.!?]{2,80})/i);
+      const projectName=(named?.[1]?.trim()||submitted.replace(/\s+/g,' ').slice(0,64)).trim()||'New MADSI Project';
       const created=await apiRequest<{project:{id:string;name:string}}>('/projects',{method:'POST',signal:controller.signal,body:JSON.stringify({name:projectName,description:submitted})});
       const generated=await apiRequest<{message?:string;files?:Array<{path:string}>}>('/projects/'+encodeURIComponent(created.project.id)+'/generate',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:submitted,timezone,requestId:crypto.randomUUID()})});
       const answer='Project saved: '+created.project.name+'\\n'+(generated.files?.length||0)+' files generated and saved to your MADSI Workspace.\\nOpen Workspace from the navigation to edit or preview it.\\n'+(generated.message||'Your project source has been saved; it has not been published.');
