@@ -73,3 +73,12 @@ test('Supabase API routes allow long-running AI requests without the old 85-seco
     assert.match(source, /export const maxDuration = 120/);
   }
 });
+
+test('pricing offers annual billing at the configured Stripe yearly price points', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../components/billing/Pricing.tsx'), 'utf8');
+  for (const price of ['annualPrice:99','annualPrice:190','annualPrice:490','annualPrice:990','annualPrice:2990']) assert.ok(source.includes(price));
+  assert.match(source, /billingInterval/);
+  assert.match(source, /interval=\$\{billingInterval\}/);
+  assert.match(source, /Yearly/);
+  assert.match(source, /billed annually/);
+});
