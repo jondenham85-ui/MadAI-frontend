@@ -22,6 +22,7 @@ export default function ProjectWorkspace(){
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
   const [preview,setPreview]=useState(false);
+  const [generationId,setGenerationId]=useState<string|null>(null);
 
   const loadProjects=useCallback(async()=>{
     const result=await apiRequest<ProjectList>('/projects');
@@ -34,6 +35,14 @@ export default function ProjectWorkspace(){
     try{
       const result=await apiRequest<FileList>('/projects/'+encodeURIComponent(project.id)+'/files');
       setActive(project);setFiles(result.files||[]);setSelected(null);setContent('');
+      const generation=await apiRequest<{job:GenerationJob|null}>('/projects/'+encodeURIComponent(project.id)+'/generation');
+      if(generation.job&&['queued','processing'].includes(generation.job.status)){
+        setGenerationId(generation.job.id);setNotice('A project build is still running. Use Refresh to check its progress.');
+      }else{
+        setGenerationId(null);
+        if(generation.job?.status==='completed')setNotice('The latest project build completed. Your saved files are loaded.');
+        else if(generation.job?.status==='failed')setNotice(generation.job.errorMessage||'The latest project build failed. Your existing saved files are still available.');
+      }
     }catch(e){setError(e instanceof Error?e.message:'Project could not be opened.');}
     finally{setBusy(false);}
   }
@@ -61,14 +70,16 @@ export default function ProjectWorkspace(){
     try{
       const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';
       const started=await apiRequest<{success:boolean;job:GenerationJob;message:string}>('/projects/'+encodeURIComponent(project.id)+'/generate',{method:'POST',body:JSON.stringify({prompt:buildPrompt.trim(),timezone,requestId:crypto.randomUUID()})});
+      setGenerationId(started.job.id);
       const deadline=Date.now()+180000;
       setNotice('MADSI is building in the background. You can keep this screen open; progress will update here.');
       while(Date.now()<deadline){
         await new Promise(resolve=>setTimeout(resolve,2500));
         const state=await apiRequest<{job:GenerationJob|null}>('/projects/'+encodeURIComponent(project.id)+'/generation/'+encodeURIComponent(started.job.id));
         if(!state.job)throw new Error('Generation status could not be found. Refresh the project to check its saved files.');
-        if(state.job.status==='failed')throw new Error(state.job.errorMessage||'MADSI could not complete this generation. Your existing saved files were preserved.');
+        if(state.job.status==='failed'){setGenerationId(null);throw new Error(state.job.errorMessage||'MADSI could not complete this generation. Your existing saved files were preserved.');}
         if(state.job.status==='completed'){
+          setGenerationId(null);
           const saved=await apiRequest<FileList>('/projects/'+encodeURIComponent(project.id)+'/files');
           setActive(current=>current?.id===project.id?{...current,status:'ready'}:current);
           setProjects(current=>current.map(item=>item.id===project.id?{...item,status:'ready'}:item));
@@ -116,8 +127,37 @@ export default function ProjectWorkspace(){
   },[files]);
   async function refreshFile(){
     if(!active)return;
-    try{const result=await apiRequest<FileList>('/projects/'+encodeURIComponent(active.id)+'/files');setFiles(result.files||[]);setNotice('Project files refreshed.');}
-    catch(e){setError(e instanceof Error?e.message:'Files could not be refreshed.');}
+    try{
+      const projectId=active.id;
+      const generation=generationId
+        ? await apiRequest<{job:GenerationJob|null}>('/projects/'+encodeURIComponent(projectId)+'/generation/'+encodeURIComponent(generationId))
+        : await apiRequest<{job:GenerationJob|null}>('/projects/'+encodeURIComponent(projectId)+'/generation');
+      const job=generation.job;
+      if(job?.status==='failed'){
+        setGenerationId(null);
+        setError(job.errorMessage||'The latest project build failed. Your existing saved files are still available.');
+      }else if(job?.status==='completed'){
+        setGenerationId(null);
+        const result=await apiRequest<FileList>('/projects/'+encodeURIComponent(projectId)+'/files');
+        setFiles(result.files||[]);
+        setActive(current=>current?.id===projectId?{...current,status:'ready'}:current);
+        setProjects(current=>current.map(item=>item.id===projectId?{...item,status:'ready'}:item));
+        setSelected(null);setContent('');
+        setNotice('Build completed. '+(job.files?.length||result.files?.length||0)+' saved files reloaded from Supabase.');
+        setError('');
+      }else if(job&&['queued','processing'].includes(job.status)){
+        setGenerationId(job.id);
+        const result=await apiRequest<FileList>('/projects/'+encodeURIComponent(projectId)+'/files');
+        setFiles(result.files||[]);
+        setNotice(job.status==='queued'?'Build is queued. Check again shortly.':'Build is still running. Your existing saved files are safe.');
+        setError('');
+      }else{
+        const result=await apiRequest<FileList>('/projects/'+encodeURIComponent(projectId)+'/files');
+        setFiles(result.files||[]);
+        setNotice('Project files refreshed from Supabase.');
+        setError('');
+      }
+    }catch(e){setError(e instanceof Error?e.message:'Project status and files could not be refreshed.');}
   }
   return <section className="project-workspace">
     <header className="project-workspace-heading"><div><p className="eyebrow">MADSI / PERSISTENT WORKSPACE</p><h1>Your projects, in one place.</h1><p>Create projects, save source files and reopen your work whenever you return.</p></div><span>PRIVATE TO YOUR ACCOUNT</span></header>
