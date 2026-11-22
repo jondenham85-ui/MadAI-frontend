@@ -76,6 +76,20 @@ export default function ProjectWorkspace(){
     }catch(e){setError(e instanceof Error?e.message:'File could not be saved.');}
     finally{setBusy(false);}
   }
+  async function saveAndPreview(){
+    if(!active||!newPath.trim()||busy)return;
+    setBusy(true);setError('');setNotice('Saving file and loading the saved index.html…');setPreview(false);
+    try{
+      await apiRequest('/projects/'+encodeURIComponent(active.id)+'/files',{method:'POST',body:JSON.stringify({path:newPath.trim(),content,language:newPath.endsWith('.html')?'html':newPath.endsWith('.css')?'css':newPath.endsWith('.js')?'javascript':'text',mimeType:newPath.endsWith('.html')?'text/html':newPath.endsWith('.css')?'text/css':newPath.endsWith('.js')?'text/javascript':'text/plain'})});
+      const result=await apiRequest<FileList>('/projects/'+encodeURIComponent(active.id)+'/files');
+      const savedFiles=result.files||[];
+      const index=savedFiles.find(file=>file.path==='index.html');
+      setFiles(savedFiles);
+      if(!index?.content){setError('Your changes were saved, but this project does not have a saved index.html to preview yet.');setNotice('');return;}
+      setSelected(index);setNewPath(index.path);setContent(index.content);setPreview(true);setNotice('Saved to Supabase. Preview is displaying the saved index.html.');
+    }catch(e){setError(e instanceof Error?e.message:'Save & Preview failed.');setNotice('');}
+    finally{setBusy(false);}
+  }
   const previewHtml=useMemo(()=>{
     const html=files.find(file=>file.path==='index.html')?.content||'';
     if(!html)return '<main style="font-family:system-ui;padding:2rem;color:#d8f7f2;background:#07131b"><h2>No index.html yet</h2><p>Create and save an index.html file to preview your website.</p></main>';
@@ -105,7 +119,7 @@ export default function ProjectWorkspace(){
           <div className="project-generate-form"><label>Tell MADSI what to build<textarea value={buildPrompt} onChange={e=>setBuildPrompt(e.target.value)} rows={3} maxLength={8000} placeholder="Describe the website, app, or tool you want MADSI to create…"/></label><button type="button" onClick={()=>void generateProject()} disabled={busy||!buildPrompt.trim()}>{busy?'Working…':'✳ Generate project & save files'}</button><small>MADSI will create source files and save them to this project. Preview is not the same as publishing.</small></div>
           {preview?<div className="project-preview"><div className="project-preview-bar">LOCAL PROJECT PREVIEW · index.html</div><iframe title={active.name+' website preview'} sandbox="allow-scripts" srcDoc={previewHtml}/></div>:<>
             <div className="project-file-layout"><aside className="project-file-list"><div><strong>FILES</strong><button type="button" onClick={()=>{setSelected(null);setNewPath('');setContent('');}}>＋</button></div>{files.map(file=><button type="button" key={file.id} className={selected?.id===file.id?'active':''} onClick={()=>void loadFile(file)}>{file.path}</button>)}{files.length===0&&<p>No files saved yet.</p>}</aside>
-              <div className="project-code-editor"><label>File path<input value={newPath} onChange={e=>setNewPath(e.target.value)} placeholder="index.html"/></label><label>File contents<textarea value={content} onChange={e=>setContent(e.target.value)} spellCheck={false} rows={18} placeholder="Add your HTML, CSS, JavaScript or other project source here…"/></label><div className="project-save-row"><span>{content.length.toLocaleString()} characters</span><button type="button" onClick={()=>void saveFile()} disabled={busy||!newPath.trim()}>{busy?'Saving…':'Save file'}</button></div></div>
+              <div className="project-code-editor"><label>File path<input value={newPath} onChange={e=>setNewPath(e.target.value)} placeholder="index.html"/></label><label>File contents<textarea value={content} onChange={e=>setContent(e.target.value)} spellCheck={false} rows={18} placeholder="Add your HTML, CSS, JavaScript or other project source here…"/></label><div className="project-save-row"><span>{content.length.toLocaleString()} characters</span><div className="project-save-actions"><button type="button" onClick={()=>void saveFile()} disabled={busy||!newPath.trim()}>{busy?'Saving…':'Save file'}</button><button type="button" onClick={()=>void saveAndPreview()} disabled={busy||!newPath.trim()||!active}>{busy?'Saving…':'Save & Preview'}</button></div></div></div>
             </div>
           </>}
         </>}
