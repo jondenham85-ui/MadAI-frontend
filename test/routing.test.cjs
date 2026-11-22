@@ -49,3 +49,18 @@ test('rewrite and server proxy share the authoritative production target', () =>
   assert.match(proxy, /import ROOT from '\.\/production-backend\.cjs'/);
   assert.doesNotMatch(proxy, /https:\/\/[a-z]+\.supabase\.co/);
 });
+
+test('Synth Console polls background generation and verifies persisted HTML before success', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../components/synth/SynthConsole.tsx'), 'utf8');
+  assert.match(source, /waitForProjectGeneration/);
+  assert.match(source, /job\.status===\x27completed\x27/);
+  assert.match(source, /saved index\.html could not be verified/);
+  assert.doesNotMatch(source, /generated\.files\?\.length/);
+});
+
+test('Workspace preview bundles saved CSS and JavaScript with saved index.html', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../components/workspace/ProjectWorkspace.tsx'), 'utf8');
+  assert.match(source, /file\.path===\x27styles\.css\x27/);
+  assert.match(source, /file\.path===\x27script\.js\x27/);
+  assert.match(source, /data-madsi-preview/);
+});
