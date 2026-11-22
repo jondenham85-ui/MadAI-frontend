@@ -18,7 +18,7 @@ type KnowledgeItem = {
   isStale?: boolean;
 };
 type Health = { status?: string; database?: string };
-type AIConfig = { primaryProvider?: string; inferenceEndpointConfigured?: boolean; modelName?: string };
+type AIConfig = { primaryProvider?: string; inferenceEndpointConfigured?: boolean; modelName?: string; inferenceHealth?: { status?: string; provider?: string; model?: string; checkedAt?: string | null; latencyMs?: number | null; fresh?: boolean } };
 
 export default function OperationsDashboard() {
   const { user, loading: sessionLoading } = useUser();
@@ -98,7 +98,7 @@ export default function OperationsDashboard() {
         </div>
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="rounded-xl border border-cyan-500/20 p-4"><p className="text-xs text-cyan-200/60">Database</p><p className="mt-2 font-semibold">{health?.database || 'Unverified'}</p></div>
-          <div className="rounded-xl border border-cyan-500/20 p-4"><p className="text-xs text-cyan-200/60">AI provider</p><p className="mt-2 font-semibold">{ai?.primaryProvider || 'Unverified'}</p></div>
+          <div className="rounded-xl border border-cyan-500/20 p-4"><p className="text-xs text-cyan-200/60">AI provider</p><p className="mt-2 font-semibold">{ai?.primaryProvider || 'Unverified'}</p><p className="mt-1 text-xs text-cyan-100/60">Live: {ai?.inferenceHealth?.status || 'Unverified'}{typeof ai?.inferenceHealth?.latencyMs === 'number' ? ' · ' + ai.inferenceHealth.latencyMs + ' ms' : ''}</p><p className="mt-1 text-[10px] text-cyan-100/40">{ai?.inferenceHealth?.fresh ? 'Synthetic check is fresh' : 'Synthetic check is stale or unavailable'}</p></div>
           <div className="rounded-xl border border-cyan-500/20 p-4"><p className="text-xs text-cyan-200/60">Approved entries</p><p className="mt-2 text-2xl font-bold">{approved}</p></div>
           <div className="rounded-xl border border-cyan-500/20 p-4"><p className="text-xs text-cyan-200/60">Needs review</p><p className="mt-2 text-2xl font-bold">{stale}</p></div>
         </div>
