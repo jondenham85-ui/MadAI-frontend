@@ -32,6 +32,8 @@ textarea { min-height: 130px; resize: vertical; }
 .mad-messages article { padding: 1rem 0; border-bottom: 1px solid #203c4b; }
 .mad-messages pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; line-height: 1.6; }
 .mad-pricing > * + * { margin-top: 1.5rem; }
+.mad-billing-toggle { display:flex; flex-wrap:wrap; gap:.5rem; }
+.mad-billing-toggle button { min-width:112px; }
 .mad-plan-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
 .mad-plan-grid .mad-card { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
 .mad-plan-grid .mad-card button, .mad-plan-grid .mad-card .mad-button { margin-top: auto; }
