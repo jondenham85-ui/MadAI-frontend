@@ -8,6 +8,7 @@ type UsageResponse={plan:string;usage:{chatCount:number;taskCount:number};limits
 const localTimezone=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{return 'UTC';}};
 type ChatResponse={answer:string;conversationId:string};
 type TaskResponse={directive:{result?:string|null};note:string};
+type GenerationJob={id:string;status:'queued'|'processing'|'completed'|'failed';files?:Array<{path:string}>;errorMessage?:string|null};
 type ConversationSummary={id:string;title?:string|null;updatedAt?:string|null;createdAt?:string|null};
 type ConversationListResponse={conversations:ConversationSummary[]};
 type MessageListResponse={messages:Array<{id?:string;role:string;content:string}>};
@@ -41,9 +42,26 @@ export default function SynthConsole(){
       const named=submitted.match(/\b(?:called|named)\s+["']?([^"'\n,.!?]{2,80})/i);
       const projectName=(named?.[1]?.trim()||submitted.replace(/\s+/g,' ').slice(0,64)).trim()||'New MADSI Project';
       const created=await apiRequest<{project:{id:string;name:string}}>('/projects',{method:'POST',signal:controller.signal,body:JSON.stringify({name:projectName,description:submitted})});
-      const generated=await apiRequest<{message?:string;files?:Array<{path:string}>}>('/projects/'+encodeURIComponent(created.project.id)+'/generate',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:submitted,timezone,requestId:crypto.randomUUID()})});
-      const answer='Project saved: '+created.project.name+'\\n'+(generated.files?.length||0)+' files generated and saved to your MADSI Workspace.\\nOpen Workspace from the navigation to edit or preview it.\\n'+(generated.message||'Your project source has been saved; it has not been published.');
-      setMessages(previous=>[...previous,{role:'MAD SI',content:answer}]);
+      const started=await apiRequest<{success:boolean;job:GenerationJob;message:string}>('/projects/'+encodeURIComponent(created.project.id)+'/generate',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:submitted,timezone,requestId:crypto.randomUUID()})});
+      const deadline=Date.now()+180000;
+      let completedJob:GenerationJob|null=null;
+      while(Date.now()<deadline){
+        await new Promise(resolve=>setTimeout(resolve,2500));
+        const state=await apiRequest<{job:GenerationJob|null}>('/projects/'+encodeURIComponent(created.project.id)+'/generation/'+encodeURIComponent(started.job.id),{signal:controller.signal});
+        if(!state.job)throw new Error('MADSI started the build, but its status could not be found. Open Workspace and refresh before retrying.');
+        if(state.job.status==='failed')throw new Error(state.job.errorMessage||'MADSI could not finish generating this project. Your existing saved files were preserved.');
+        if(state.job.status==='completed'){completedJob=state.job;break;}
+      }
+      if(!completedJob){
+        const answer='Project created: '+created.project.name+'\\nMADSI is still building in the background. Your project is safe. Open Workspace and tap Refresh to check progress; do not start a duplicate build.';
+        setMessages(previous=>[...previous,{role:'MAD SI',content:answer}]);
+      }else{
+        const saved=await apiRequest<{files:Array<{path:string;content?:string}>}>('/projects/'+encodeURIComponent(created.project.id)+'/files',{signal:controller.signal});
+        const index=saved.files?.find(file=>file.path==='index.html'&&typeof file.content==='string'&&file.content.trim());
+        if(!index)throw new Error('MADSI reported that generation finished, but a saved index.html could not be verified. Open Workspace and refresh; your project has not been published.');
+        const answer='Project generated and verified: '+created.project.name+'\\n'+(saved.files?.length||0)+' saved files were read back from your MADSI Workspace, including index.html.\\nOpen Workspace to edit or preview the saved source.\\nThis project has not been published.';
+        setMessages(previous=>[...previous,{role:'MAD SI',content:answer}]);
+      }
     }else{
       const result=await apiRequest<TaskResponse>('/tasks',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:submitted,build:false,timezone})});
       const answer=result.directive?.result||result.note;setMessages(previous=>[...previous,{role:'MAD SI',content:answer}]);
