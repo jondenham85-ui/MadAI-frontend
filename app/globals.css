@@ -137,6 +137,8 @@ textarea { min-height: 130px; resize: vertical; }
 .project-code-editor { display:grid; gap:.8rem; min-width:0; }
 .project-code-editor textarea { min-height:320px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem; line-height:1.55; tab-size:2; }
 .project-save-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.7rem; color:#9fb8c8; font-size:.78rem; }
+.project-save-actions { display:flex; align-items:center; flex-wrap:wrap; gap:.55rem; }
+.project-save-actions button { min-height:40px; }
 .project-alert,.project-notice { padding:.8rem 1rem; border-radius:.65rem; overflow-wrap:anywhere; }
 .project-alert { border:1px solid #b65c65; background:#35151e; color:#ffd4d9; }
 .project-notice { border:1px solid #356b72; background:rgba(25,230,208,.08); color:#c8fff8; }
