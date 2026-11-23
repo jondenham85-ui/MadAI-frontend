@@ -8,7 +8,7 @@ type UsageResponse={plan:string;usage:{chatCount:number;taskCount:number};limits
 const localTimezone=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{return 'UTC';}};
 type ChatResponse={answer:string;conversationId:string};
 type TaskResponse={directive?:{result?:string|null};note?:string;answer?:string};
-type TaskJob={id:string;status:'queued'|'processing'|'completed'|'failed';result?:TaskResponse|null;errorMessage?:string|null};
+type TaskJob={id:string;status:'queued'|'processing'|'completed'|'failed';result?:TaskResponse|null;errorMessage?:string|null;errorStatus?:number|null;errorCode?:string|null};
 type TaskStartResponse={success:boolean;job:Pick<TaskJob,'id'|'status'>;message:string};
 type TaskStatusResponse={success:boolean;job:TaskJob|null};
 type GenerationJob={id:string;status:'queued'|'processing'|'completed'|'failed';files?:Array<{path:string}>;errorMessage?:string|null};
@@ -73,7 +73,7 @@ export default function SynthConsole(){
         await new Promise(resolve=>setTimeout(resolve,1200));
         const state=await apiRequest<TaskStatusResponse>('/tasks/'+encodeURIComponent(started.job.id),{signal:controller.signal});
         if(!state.job)throw new Error('MADSI accepted the directive, but its status could not be found. Please refresh and check again.');
-        if(state.job.status==='failed')throw new Error(state.job.errorMessage||'MADSI could not complete this directive. Please retry.');
+        if(state.job.status==='failed'){if(state.job.errorStatus)throw new ApiError(state.job.errorStatus,{error:state.job.errorMessage||'MADSI could not complete this directive. Please retry.'});throw new Error(state.job.errorMessage||'MADSI could not complete this directive. Please retry.');}
         if(state.job.status==='completed'){completedJob=state.job;break;}
         setTaskProgress(state.job.status==='processing'?'MADSI is working on your directive…':'MADSI has queued your directive…');
       }
