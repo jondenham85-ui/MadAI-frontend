@@ -77,10 +77,11 @@ export default function ProjectWorkspace(){
       const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';
       const started=await apiRequest<{success:boolean;job:GenerationJob;message:string}>('/projects/'+encodeURIComponent(project.id)+'/generate',{method:'POST',body:JSON.stringify({prompt:buildPrompt.trim(),timezone,requestId:crypto.randomUUID()})});
       setGenerationId(started.job.id);
-      const deadline=Date.now()+180000;
+      const deadline=Date.now()+180000;let pollAttempt=0;
       setNotice('MADSI is building in the background. You can keep this screen open; progress will update here.');
       while(Date.now()<deadline){
-        await new Promise(resolve=>setTimeout(resolve,2500));
+        // Surface quick completions sooner, then reduce polling while longer builds run.
+        await new Promise(resolve=>setTimeout(resolve,pollAttempt<8?1000:2000));pollAttempt++;
         const state=await apiRequest<{job:GenerationJob|null}>('/projects/'+encodeURIComponent(project.id)+'/generation/'+encodeURIComponent(started.job.id));
         if(!state.job)throw new Error('Generation status could not be found. Refresh the project to check its saved files.');
         if(state.job.status==='failed'){setGenerationId(null);throw new Error(state.job.errorMessage||'MADSI could not complete this generation. Your existing saved files were preserved.');}
