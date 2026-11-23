@@ -37,7 +37,7 @@ export default function SynthConsole(){
       while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let boundary;while((boundary=/\r?\n\r?\n/.exec(buffer))!==null){const block=buffer.slice(0,boundary.index);buffer=buffer.slice(boundary.index+boundary[0].length);handleEvent(block);}}
       buffer+=decoder.decode();if(buffer.trim())handleEvent(buffer.replace(/\r/g,''));
       if(!completed)throw new Error(streamedAnswer?'The response ended before MADSI confirmed it was saved. Please check conversation history.':'MADSI ended the stream without a response. Please retry.');
-      await refreshConversations();await refreshUsage();
+      void refreshConversations();
     }else if(submittedMode==='build'){
       const named=submitted.match(/\b(?:called|named)\s+["']?([^"'\n,.!?]{2,80})/i);
       const projectName=(named?.[1]?.trim()||submitted.replace(/\s+/g,' ').slice(0,64)).trim()||'New MADSI Project';
