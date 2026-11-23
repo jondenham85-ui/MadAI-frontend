@@ -62,7 +62,7 @@ export default function DevelopersPage() {
         </section>
 
         <section className="dev-apply">
-          <div><p className="dev-eyebrow">PARTNER ONBOARDING</p><h2>Ready to integrate?</h2><p>MADSI OAuth client registration is currently reviewed and provisioned manually during the partner preview. This prevents unverified apps from receiving credentials while the developer intake and management workflow is completed.</p></div>
+          <div><p className="dev-eyebrow">PARTNER ONBOARDING</p><h2>Ready to integrate?</h2><p>Submit your application for a security and redirect-URI review. You must be signed in to MADSI. Approved applications are manually registered during the partner preview.</p><a className="dev-primary" href="/developers/apply">Apply for developer access →</a></div>
           <div className="dev-apply-checklist"><strong>Have these details ready:</strong><ul><li>Application and organization name</li><li>Public website and privacy policy</li><li>Exact HTTPS callback URL(s)</li><li>Public or confidential client type</li><li>Scopes and a short explanation of why they are needed</li><li>Technical and security contact</li></ul><p>No client IDs or secrets are issued by this information page. Never send a client secret in a public form, chat or email.</p></div>
         </section>
         <footer className="dev-footer"><a href="/">← Back to MADSI</a><span>Secure identity starts with user choice.</span><a href="https://supabase.com/docs/guides/auth/oauth-server/getting-started" target="_blank" rel="noreferrer">Supabase OAuth documentation ↗</a></footer>
