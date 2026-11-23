@@ -33,15 +33,21 @@ export default function ProjectWorkspace(){
   async function openProject(project:Project){
     setBusy(true);setError('');setNotice('');setPreview(false);
     try{
-      const result=await apiRequest<FileList>('/projects/'+encodeURIComponent(project.id)+'/files');
-      setActive(project);setFiles(result.files||[]);setSelected(null);setContent('');
+      // Read the generation state before listing files. A build can finish between
+      // the first file-list request and this status request; in that race the
+      // earlier list is stale and the preview incorrectly reports no index.html.
       const generation=await apiRequest<{job:GenerationJob|null}>('/projects/'+encodeURIComponent(project.id)+'/generation');
+      const result=await apiRequest<FileList>('/projects/'+encodeURIComponent(project.id)+'/files');
+      const savedFiles=result.files||[];
+      setActive(project);setFiles(savedFiles);setSelected(null);setContent('');
       if(generation.job&&['queued','processing'].includes(generation.job.status)){
         setGenerationId(generation.job.id);setNotice('A project build is still running. Use Refresh to check its progress.');
       }else{
         setGenerationId(null);
-        if(generation.job?.status==='completed')setNotice('The latest project build completed. Your saved files are loaded.');
-        else if(generation.job?.status==='failed')setNotice(generation.job.errorMessage||'The latest project build failed. Your existing saved files are still available.');
+        if(generation.job?.status==='completed'){
+          const hasIndex=savedFiles.some(file=>file.path==='index.html'&&Boolean(file.content));
+          setNotice(hasIndex?'The latest project build completed. Saved index.html is loaded and ready to preview.':'The latest build completed, but index.html was not returned in the saved-file list. Refresh to retry the file read.');
+        }else if(generation.job?.status==='failed')setNotice(generation.job.errorMessage||'The latest project build failed. Your existing saved files are still available.');
       }
     }catch(e){setError(e instanceof Error?e.message:'Project could not be opened.');}
     finally{setBusy(false);}
