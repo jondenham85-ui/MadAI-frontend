@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Header from '@/components/layout/Header';
 import PartnerApplicationForm from '@/components/developers/PartnerApplicationForm';
-import './developers.css';
+import '../developers.css';
 
 export const metadata: Metadata = {
   title: 'Apply for MADSI Developer Access',
