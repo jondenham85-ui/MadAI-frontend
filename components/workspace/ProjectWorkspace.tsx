@@ -189,7 +189,7 @@ export default function ProjectWorkspace(){
       <aside className="project-panel">
         <h2>Projects <small>{projects.length}</small></h2>
         <form onSubmit={createProject} className="project-create-form">
-          <label>Project name<input value={name} onChange={e=>setName(e.target.value)} maxLength={120} placeholder="e.g. Denham Landscaping" required/></label>
+          <label>Project name<input value={name} onChange={e=>setName(e.target.value)} maxLength={120} placeholder="e.g. Client portal" required/></label>
           <label>Description <textarea value={description} onChange={e=>setDescription(e.target.value)} maxLength={2000} rows={3} placeholder="What are you building?"/></label>
           <button type="submit" disabled={busy||!name.trim()}>{busy?'Working…':'＋ New project'}</button>
         </form>
