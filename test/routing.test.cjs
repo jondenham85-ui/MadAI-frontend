@@ -57,6 +57,13 @@ test('Synth Console lets background generation use its full polling window', () 
   assert.match(source, /saved index\.html could not be verified/);
 });
 
+test('Workspace checks generation status before reading files to avoid a stale empty preview', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../components/workspace/ProjectWorkspace.tsx'), 'utf8');
+  const openProject = source.slice(source.indexOf('async function openProject'), source.indexOf('async function createProject'));
+  assert.ok(openProject.indexOf("'/generation'") < openProject.indexOf("'/files'"));
+  assert.match(openProject, /hasIndex=savedFiles\.some\(file=>file\.path==='index\.html'&&Boolean\(file\.content\)\)/);
+});
+
 test('Workspace preview inlines saved styles.css and script.js', () => {
   const source = fs.readFileSync(path.join(__dirname, '../components/workspace/ProjectWorkspace.tsx'), 'utf8');
   assert.match(source, /file\.path==='styles\.css'/);
