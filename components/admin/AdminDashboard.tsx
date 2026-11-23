@@ -44,8 +44,9 @@ export default function AdminDashboard({
           </h2>
 
           <p className="mt-2 text-sm text-slate-400">
-            Jonathan Denham is the sole owner and has exclusive authority to approve,
-            modify, or revoke any admin access.
+            Jonathan Denham is the primary owner and retains final authority over admin
+            changes and permissions. Authorized co-owner accounts may also access
+            the owner dashboard.
           </p>
         </div>
 
@@ -76,7 +77,7 @@ export default function AdminDashboard({
 
         {isOwner && (
           <div className="mt-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-            Owner access granted to jondenham85@gmail.com.
+            Owner access granted to this authorized owner account.
           </div>
         )}
       </div>
