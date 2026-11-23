@@ -27,7 +27,7 @@ export async function apiRequest<T = unknown>(path: string, options: ApiRequestO
   const isLongRunningAIRequest = requestMethod === 'POST' && (
     ['/tasks', '/operations'].includes(path) || /^\/projects\/[^/]+\/generate$/.test(path)
   );
-  const requestTimeoutMs = isLongRunningAIRequest ? 140000 : 125000;
+  const requestTimeoutMs = isLongRunningAIRequest ? 105000 : 110000;
   const deadline = new Promise<never>((_, reject) => {
     cancel = () => { reject(new DOMException('Request cancelled', 'AbortError')); controller.abort(); };
     if (options.signal?.aborted) cancel();
