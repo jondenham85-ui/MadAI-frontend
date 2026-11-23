@@ -68,9 +68,10 @@ export default function SynthConsole(){
     }else{
       const requestId=crypto.randomUUID();
       const started=await apiRequest<TaskStartResponse>('/tasks',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:submitted,build:false,timezone,requestId})});
-      const deadline=Date.now()+175000;let completedJob:TaskJob|null=null;
+      const deadline=Date.now()+175000;let completedJob:TaskJob|null=null;let pollAttempt=0;
       while(Date.now()<deadline){
-        await new Promise(resolve=>setTimeout(resolve,1200));
+        // Check quickly while short directives are likely to finish, then ease back to reduce polling load.
+        await new Promise(resolve=>setTimeout(resolve,pollAttempt<8?500:1000));pollAttempt++;
         const state=await apiRequest<TaskStatusResponse>('/tasks/'+encodeURIComponent(started.job.id),{signal:controller.signal});
         if(!state.job)throw new Error('MADSI accepted the directive, but its status could not be found. Please refresh and check again.');
         if(state.job.status==='failed'){if(state.job.errorStatus)throw new ApiError(state.job.errorStatus,{error:state.job.errorMessage||'MADSI could not complete this directive. Please retry.'});throw new Error(state.job.errorMessage||'MADSI could not complete this directive. Please retry.');}
