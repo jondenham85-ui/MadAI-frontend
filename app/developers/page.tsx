@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 const scopes = [
-  ['openid', 'OpenID Connect identity'],
+  ['openid', 'OpenID Connect identity (requires asymmetric JWT signing keys to be configured)'],
   ['profile', 'Basic profile information'],
   ['email', 'Email address'],
 ];
