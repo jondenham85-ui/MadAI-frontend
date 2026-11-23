@@ -43,7 +43,7 @@ export default function OAuthConsent({ authorizationId }: ConsentProps) {
         if (active) {
           setClientName(data.client?.name || 'An application');
           setRedirectUri(data.redirect_uri || '');
-          setScopes((data.scope || '').split(/\\s+/).filter(Boolean));
+          setScopes((data.scope || '').split(/\s+/).filter(Boolean));
         }
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : 'Unable to load this authorization request.');
