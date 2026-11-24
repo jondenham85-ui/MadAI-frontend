@@ -23,7 +23,7 @@ export default function HomePage(){
  const online=health?.status==='ok';
  const startHref=user?'/synth':'/signup';
  return <><Header/><main className="mad-main nx-home">
-  <div className="nx-home-status"><span><i/> MADSI / SYNTHETIC INTELLIGENCE</span><span>{!checked?'CHECKING SYSTEM':online?'CORE CONNECTION ONLINE':'CONNECTION UNVERIFIED'}</span></div>
+  <div className="nx-home-status"><span>MADSI · SYNTHETIC INTELLIGENCE</span><span>{!checked?'CHECKING SYSTEM':online?'CORE CONNECTION ONLINE':'CONNECTION UNVERIFIED'}</span></div>
   <section className="nx-hero"><div className="nx-hero-copy">
    <small>MADSI · MAD SYNTHETIC INTELLIGENCE</small><p className="nx-home-kicker">One intelligence. More momentum.</p>
    {user&&<p className="nx-home-greeting">Welcome back, {user.name||'there'}. {user.role==='OWNER'&&<a href="/admin">Owner command ↗</a>}</p>}
