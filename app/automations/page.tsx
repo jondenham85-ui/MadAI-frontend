@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useUser } from '@/context/UserContext';
 import { getAccessToken } from '@/lib/supabase';
 
-type Automation = { id:string; name:string; description:string; agent:string; prompt:string; trigger_type:'manual'|'schedule'; schedule_cron:string|null; timezone:string; enabled:boolean; approval_required:boolean; created_at:string; last_run_at:string|null };
+type Automation = { id:string; name:string; description:string; agent:string; prompt:string; trigger_type:'manual'|'schedule'; schedule_cron:string|null; timezone:string; next_run_at:string|null; enabled:boolean; approval_required:boolean; created_at:string; last_run_at:string|null };
 type Run = { id:string; status:string; trigger_source:string; result:unknown; error:string|null; created_at:string; completed_at:string|null };
 const AGENTS = [{id:'automation',name:'Automation Agent'},{id:'task',name:'Task Agent'},{id:'revenue',name:'Revenue Agent'},{id:'funnel',name:'Funnel Agent'},{id:'monitoring',name:'Monitoring Agent'},{id:'integration',name:'Integration Agent'}];
 export default function AutomationsPage(){
@@ -27,6 +27,7 @@ export default function AutomationsPage(){
    setRuns(Object.fromEntries(history));
  },[request]);
  useEffect(()=>{if(user)void refresh().catch(e=>setError(e.message));},[user?.id,refresh]);
+ useEffect(()=>{if(!user)return;const timer=setInterval(()=>{void refresh().catch(()=>undefined);},30000);return()=>clearInterval(timer);},[user?.id,refresh]);
  async function create(e:FormEvent){
   e.preventDefault();setBusy(true);setError('');setNotice('');
   try{await request('/automations','POST',{name,description,prompt,agent,triggerType:trigger,scheduleCron:trigger==='schedule'?cron:null,timezone});setName('');setDescription('');setPrompt('');setNotice('Workflow saved. It is not active yet. Review it, then run and approve it.');await refresh();}
@@ -65,7 +66,7 @@ export default function AutomationsPage(){
   </section>
   <section className="space-y-3"><div className="flex items-center justify-between gap-3"><h2 className="text-xl font-semibold">Your workflows</h2><button disabled={busy} onClick={()=>void refresh().catch(e=>setError(e.message))} className="rounded-lg border border-teal-400/30 px-3 py-2 text-sm">Refresh</button></div>
    {items.length===0?<div className="rounded-2xl border border-teal-400/20 bg-[#062629] p-5 text-teal-100/70">No automations yet. Create your first workflow above.</div>:items.map(a=><article key={a.id} className="rounded-2xl border border-teal-400/20 bg-[#062629] p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-semibold text-teal-100">{a.name}</h3><p className="mt-1 text-sm text-teal-100/65">{a.agent} · {a.trigger_type==='schedule'?'Scheduled':'Manual'} · {a.enabled?'Enabled':'Draft / paused'}</p>{a.description&&<p className="mt-2 text-sm">{a.description}</p>}</div><div className="flex flex-wrap gap-2"><button disabled={busy} onClick={()=>void run(a.id)} className="rounded-lg bg-teal-300 px-4 py-2 font-semibold text-[#031b1e]">Run workflow</button>{a.trigger_type==='schedule'&&<button disabled={busy} onClick={()=>void toggle(a)} className="rounded-lg border border-teal-300/40 px-4 py-2">{a.enabled?'Pause schedule':'Enable schedule'}</button>}</div></div>
-    {a.trigger_type==='schedule'&&<p className="mt-3 text-xs text-amber-200">Schedule: {a.schedule_cron} ({a.timezone}). Each scheduled occurrence creates an approval request before the agent runs.</p>}
+    {a.trigger_type==='schedule'&&<p className="mt-3 text-xs text-amber-200">Schedule: {a.schedule_cron} ({a.timezone}). Next run: {a.next_run_at?new Date(a.next_run_at).toLocaleString():'Not scheduled'}. Each occurrence creates an approval request.</p>}
     <div className="mt-4 space-y-2">{(runs[a.id]||[]).map(r=><div key={r.id} className="rounded-lg border border-teal-400/10 bg-[#031b1e] p-3"><div className="flex flex-wrap justify-between gap-2 text-sm"><strong>{r.status.replaceAll('_',' ')}</strong><span className="text-teal-100/60">{new Date(r.created_at).toLocaleString()}</span></div>{r.error&&<p className="mt-2 text-sm text-red-300">{r.error}</p>}{r.status==='approval_required'&&<button disabled={busy} onClick={()=>void approve(a.id,r.id)} className="mt-3 rounded-lg bg-teal-300 px-3 py-2 text-sm font-semibold text-[#031b1e]">Approve and execute</button>}{r.result!==null&&r.result!==undefined&&<details className="mt-2"><summary className="cursor-pointer text-sm text-teal-200">View execution result</summary><pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify(r.result,null,2)}</pre></details>}</div>)}</div>
    </article>)}
   </section>
