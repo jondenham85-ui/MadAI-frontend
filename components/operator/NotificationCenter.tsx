@@ -39,6 +39,15 @@ export default function NotificationCenter() {
     return () => clearInterval(timer);
   }, [userId, refresh]);
 
+  async function markRead(id: string) {
+    try {
+      await apiRequest('/notifications/' + encodeURIComponent(id) + '/read', { method: 'PATCH' });
+      await refresh();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Could not update notification.');
+    }
+  }
+
   const unread = notifications.filter(item => !item.readAt).length;
 
   return (
@@ -60,6 +69,7 @@ export default function NotificationCenter() {
               </div>
               <p className="mt-1 text-sm text-cyan-100/75">{item.message}</p>
               {item.id.startsWith('automation_approval_') && <a href="/automations" className="mt-2 inline-block text-sm text-cyan-200 underline">Review automation run</a>}
+              {!item.readAt && <button type="button" onClick={() => void markRead(item.id)} className="mt-2 block text-xs text-cyan-200/70 underline">Mark as read</button>}
             </article>
           ))}
         </div>}
