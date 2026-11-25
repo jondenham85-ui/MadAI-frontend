@@ -6,6 +6,26 @@ import {useUser} from '@/context/UserContext';
 type Message={role:string;content:string};
 type UsageResponse={plan:string;usage:{chatCount:number;taskCount:number};limits:{chatLimit:number|null;taskLimit:number|null};resetTimezone?:string};
 const localTimezone=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{return 'UTC';}};
+const isWeatherQuestion=(value:string)=>/\\b(weather|rain(?:ing)?|raining|snow(?:ing)?|forecast|temperature|precipitation|thunderstorm|storm)\\b/i.test(value);
+const weatherCodeLabel=(code:number)=>({0:'clear sky',1:'mainly clear',2:'partly cloudy',3:'overcast',45:'fog',48:'depositing rime fog',51:'light drizzle',53:'moderate drizzle',55:'dense drizzle',56:'freezing drizzle',57:'dense freezing drizzle',61:'slight rain',63:'moderate rain',65:'heavy rain',66:'light freezing rain',67:'heavy freezing rain',71:'slight snow',73:'moderate snow',75:'heavy snow',77:'snow grains',80:'slight rain showers',81:'moderate rain showers',82:'violent rain showers',85:'slight snow showers',86:'heavy snow showers',95:'thunderstorm',96:'thunderstorm with slight hail',99:'thunderstorm with heavy hail'} as Record<number,string>)[code]||'conditions not classified';
+async function getLiveWeatherContext():Promise<string>{
+  const unavailable='[LIVE WEATHER CHECK: The browser could not provide a current location/weather reading. Do not guess whether it is raining. Ask the user for a city or ZIP code so current conditions can be checked.]';
+  if(!('geolocation' in navigator))return unavailable;
+  try{
+    const position=await new Promise<GeolocationPosition>((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:false,timeout:8000,maximumAge:120000}));
+    const {latitude,longitude}=position.coords;
+    const url=new URL('https://api.open-meteo.com/v1/forecast');
+    url.search=new URLSearchParams({latitude:String(latitude),longitude:String(longitude),current:'temperature_2m,apparent_temperature,precipitation,rain,showers,snowfall,weather_code,wind_speed_10m',timezone:'auto'}).toString();
+    const response=await fetch(url.toString(),{signal:AbortSignal.timeout(8000),cache:'no-store'});
+    if(!response.ok)return unavailable;
+    const data=await response.json();
+    const current=data?.current;
+    if(!current||typeof current.weather_code!=='number'||typeof current.time!=='string')return unavailable;
+    const rainNow=Number(current.rain||0)+Number(current.showers||0);
+    const condition=weatherCodeLabel(current.weather_code);
+    return '[VERIFIED LIVE WEATHER CONTEXT from Open-Meteo; browser location permission was granted for this weather question only. Coordinates are approximate and should not be repeated. Local time: '+current.time+' ('+(data.timezone||'local timezone')+'). Current conditions: '+condition+'. Temperature: '+current.temperature_2m+' '+(data.current_units?.temperature_2m||'°C')+'; feels like: '+current.apparent_temperature+' '+(data.current_units?.apparent_temperature||'°C')+'; rain: '+rainNow+' '+(data.current_units?.rain||'mm')+'; snowfall: '+current.snowfall+' '+(data.current_units?.snowfall||'cm')+'; wind: '+current.wind_speed_10m+' '+(data.current_units?.wind_speed_10m||'km/h')+'. Answer directly whether it is raining now, distinguishing current precipitation from forecast. If rain and showers are both zero and the weather code indicates no precipitation, say it is not currently raining. Source: Open-Meteo current weather API.]';
+  }catch{return unavailable;}
+}
 type ChatResponse={answer:string;conversationId:string};
 type TaskResponse={directive?:{result?:string|null};note?:string;answer?:string};
 type TaskJob={id:string;status:'queued'|'processing'|'completed'|'failed';result?:TaskResponse|null;errorMessage?:string|null;errorStatus?:number|null;errorCode?:string|null};
@@ -28,9 +48,10 @@ export default function SynthConsole(){
   async function loadConversation(id:string){if(!id||historyBusy||busy)return;setHistoryBusy(true);setHistoryError('');try{const result=await apiRequest<MessageListResponse>('/conversations/'+encodeURIComponent(id)+'/messages');setMessages((result.messages||[]).map(message=>({role:message.role==='assistant'?'MAD SI':message.role==='user'?'You':message.role,content:message.content})));setConversationId(id);setMode('chat');setError('');setStatus(null);setPaywall(false);}catch(error){setHistoryError(error instanceof Error?error.message:'That conversation could not be opened.');}finally{setHistoryBusy(false);}}
   async function copyAnswer(value:string,index:number){try{await navigator.clipboard.writeText(value);setCopiedIndex(index);}catch{setError('Clipboard access is unavailable in this browser.');}}
   async function refreshConversations(){try{const result=await apiRequest<ConversationListResponse>('/conversations');setConversations(result.conversations||[]); }catch{/* The successful answer should remain visible even if history refresh fails. */}}
-  async function submit(event:FormEvent){event.preventDefault();const submitted=prompt.trim();if(!submitted||busy)return;const submittedMode=mode;setBusy(true);setError('');setStatus(null);setPaywall(false);setMessages(previous=>[...previous,{role:'You',content:submitted},...(submittedMode==='chat'?[{role:'MAD SI',content:''}]:[])]);setPrompt('');const controller=new AbortController();const timer=submittedMode==='build'?undefined:setTimeout(()=>controller.abort(),190000);setTaskProgress(submittedMode==='task'?'MADSI is starting your directive…':'');try{if(submittedMode==='chat'){
+  async function submit(event:FormEvent){event.preventDefault();const submitted=prompt.trim();if(!submitted||busy)return;const submittedMode=mode;let requestPrompt=submitted;setBusy(true);setError('');setStatus(null);setPaywall(false);setMessages(previous=>[...previous,{role:'You',content:submitted},...(submittedMode==='chat'?[{role:'MAD SI',content:''}]:[])]);setPrompt('');const controller=new AbortController();const timer=submittedMode==='build'?undefined:setTimeout(()=>controller.abort(),190000);setTaskProgress(submittedMode==='task'?'MADSI is starting your directive…':'');try{if(submittedMode==='chat'){
+      if(isWeatherQuestion(submitted))requestPrompt=submitted+'\\n\\n'+await getLiveWeatherContext();
       const requestId=crypto.randomUUID();
-      const response=await apiStreamRequest('/synth',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:submitted,conversationId,requestId,timezone})});
+      const response=await apiStreamRequest('/synth',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:requestPrompt,conversationId,requestId,timezone})});
       const reader=response.body!.getReader(),decoder=new TextDecoder();let buffer='',streamedAnswer='',completed=false;
       const handleEvent=(block:string)=>{let eventName='message';const data:string[]=[];for(const line of block.split(/\r?\n/)){if(line.startsWith('event:'))eventName=line.slice(6).trim();else if(line.startsWith('data:'))data.push(line.slice(5).trim());}if(!data.length)return;let payload:Record<string,unknown>;try{payload=JSON.parse(data.join('\n')) as Record<string,unknown>;}catch{return;}
         if(eventName==='delta'&&typeof payload.delta==='string'){streamedAnswer+=payload.delta;setMessages(previous=>previous.map((item,index)=>index===previous.length-1?{...item,content:streamedAnswer}:item));}
