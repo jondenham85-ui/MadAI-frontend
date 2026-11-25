@@ -6,7 +6,7 @@ import {useUser} from '@/context/UserContext';
 type Message={role:string;content:string};
 type UsageResponse={plan:string;usage:{chatCount:number;taskCount:number};limits:{chatLimit:number|null;taskLimit:number|null};resetTimezone?:string};
 const localTimezone=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{return 'UTC';}};
-const isWeatherQuestion=(value:string)=>/\\b(weather|rain(?:ing)?|raining|snow(?:ing)?|forecast|temperature|precipitation|thunderstorm|storm)\\b/i.test(value);
+const isWeatherQuestion=(value:string)=>/\b(weather|rain(?:ing)?|raining|snow(?:ing)?|forecast|temperature|precipitation|thunderstorm|storm)\b/i.test(value);
 const weatherCodeLabel=(code:number)=>({0:'clear sky',1:'mainly clear',2:'partly cloudy',3:'overcast',45:'fog',48:'depositing rime fog',51:'light drizzle',53:'moderate drizzle',55:'dense drizzle',56:'freezing drizzle',57:'dense freezing drizzle',61:'slight rain',63:'moderate rain',65:'heavy rain',66:'light freezing rain',67:'heavy freezing rain',71:'slight snow',73:'moderate snow',75:'heavy snow',77:'snow grains',80:'slight rain showers',81:'moderate rain showers',82:'violent rain showers',85:'slight snow showers',86:'heavy snow showers',95:'thunderstorm',96:'thunderstorm with slight hail',99:'thunderstorm with heavy hail'} as Record<number,string>)[code]||'conditions not classified';
 async function getLiveWeatherContext():Promise<string>{
   const unavailable='[LIVE WEATHER CHECK: The browser could not provide a current location/weather reading. Do not guess whether it is raining. Ask the user for a city or ZIP code so current conditions can be checked.]';
@@ -49,7 +49,7 @@ export default function SynthConsole(){
   async function copyAnswer(value:string,index:number){try{await navigator.clipboard.writeText(value);setCopiedIndex(index);}catch{setError('Clipboard access is unavailable in this browser.');}}
   async function refreshConversations(){try{const result=await apiRequest<ConversationListResponse>('/conversations');setConversations(result.conversations||[]); }catch{/* The successful answer should remain visible even if history refresh fails. */}}
   async function submit(event:FormEvent){event.preventDefault();const submitted=prompt.trim();if(!submitted||busy)return;const submittedMode=mode;let requestPrompt=submitted;setBusy(true);setError('');setStatus(null);setPaywall(false);setMessages(previous=>[...previous,{role:'You',content:submitted},...(submittedMode==='chat'?[{role:'MAD SI',content:''}]:[])]);setPrompt('');const controller=new AbortController();const timer=submittedMode==='build'?undefined:setTimeout(()=>controller.abort(),190000);setTaskProgress(submittedMode==='task'?'MADSI is starting your directive…':'');try{if(submittedMode==='chat'){
-      if(isWeatherQuestion(submitted))requestPrompt=submitted+'\\n\\n'+await getLiveWeatherContext();
+      if(isWeatherQuestion(submitted))requestPrompt=submitted+'\n\n'+await getLiveWeatherContext();
       const requestId=crypto.randomUUID();
       const response=await apiStreamRequest('/synth',{method:'POST',signal:controller.signal,body:JSON.stringify({prompt:requestPrompt,conversationId,requestId,timezone})});
       const reader=response.body!.getReader(),decoder=new TextDecoder();let buffer='',streamedAnswer='',completed=false;
