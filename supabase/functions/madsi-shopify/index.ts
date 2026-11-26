@@ -10,7 +10,7 @@ const SITE = "https://www.madmadisonai.com";
 const CALLBACK = SUPABASE_URL + "/functions/v1/madsi-shopify/callback";
 const API_VERSION = "2026-10";
 const DEFAULT_SHOP = "uunwqe-eu.myshopify.com";
-const SCOPES = ["read_products", "read_inventory", "read_orders", "read_locations"];
+const SCOPES = ["read_products", "write_products", "read_inventory", "read_orders", "read_locations"];
 
 const headers = (origin: string | null) => ({
   "content-type": "application/json",
@@ -125,6 +125,42 @@ Deno.serve(async (req: Request) => {
       if (!connection) return json(req, { error: "Connect MAD Warehouse first." }, 409);
       const data = await shopifyGraphql(connection.shop_domain, connection.access_token, `query { products(first: 50, sortKey: UPDATED_AT, reverse: true) { nodes { id title handle status vendor totalInventory featuredImage { url altText } variants(first: 10) { nodes { id title price inventoryQuantity } } } } } `);
       return json(req, { products: data?.products?.nodes || [] });
+    }
+    if (url.pathname.endsWith("/products") && req.method === "POST") {
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body.title !== "string" || !body.title.trim()) {
+        return json(req, { error: "A product title is required." }, 400);
+      }
+      const title = body.title.trim().slice(0, 255);
+      const descriptionHtml = typeof body.descriptionHtml === "string" ? body.descriptionHtml.slice(0, 10000) : "";
+      const vendor = typeof body.vendor === "string" ? body.vendor.trim().slice(0, 255) : "";
+      const productType = typeof body.productType === "string" ? body.productType.trim().slice(0, 255) : "";
+      const tags = Array.isArray(body.tags)
+        ? body.tags.filter((tag: unknown): tag is string => typeof tag === "string").map((tag: string) => tag.trim()).filter(Boolean).slice(0, 20)
+        : [];
+      const { data: connection, error: connectionError } = await db.from("madsi_shopify_connections")
+        .select("shop_domain,access_token,granted_scopes").eq("owner_user_id", ownerId).eq("status", "connected").maybeSingle();
+      if (connectionError || !connection) return json(req, { error: "Connect MAD Warehouse first." }, 409);
+      if (!Array.isArray(connection.granted_scopes) || !connection.granted_scopes.includes("write_products")) {
+        return json(req, { error: "MADSI needs Shopify write_products permission. Update the existing MADSi app's scopes and reauthorize it once.", code: "SHOPIFY_WRITE_SCOPE_REQUIRED" }, 403);
+      }
+      const mutation = `mutation CreateMadsiDraft($input: ProductCreateInput!) {
+        productCreate(product: $input) {
+          product { id title status }
+          userErrors { field message }
+        }
+      }`;
+      const result = await shopifyGraphql(connection.shop_domain, connection.access_token, mutation, {
+        input: { title, descriptionHtml, vendor, productType, tags, status: "DRAFT" }
+      });
+      const created = result?.productCreate;
+      if (created?.userErrors?.length) {
+        return json(req, { error: "Shopify rejected the draft product.", details: created.userErrors }, 422);
+      }
+      if (!created?.product?.id || created.product.status !== "DRAFT") {
+        return json(req, { error: "Shopify did not confirm creation of an unpublished draft." }, 502);
+      }
+      return json(req, { created: true, product: created.product, published: false }, 201);
     }
     if (url.pathname.endsWith("/orders") && req.method === "GET") {
       const { data: connection } = await db.from("madsi_shopify_connections").select("shop_domain,access_token").eq("owner_user_id", ownerId).eq("status", "connected").maybeSingle();
