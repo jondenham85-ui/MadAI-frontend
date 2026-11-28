@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import NexusWorkspace from '@/components/layout/NexusWorkspace';
 import { useUser } from '@/context/UserContext';
 import { getAccessToken } from '@/lib/supabase';
@@ -21,7 +21,6 @@ type Insight = { name: string; title?: string; values?: Array<{ value: number | 
 export default function FacebookIntegrationPage() {
   const { user, loading } = useUser();
   const router = useRouter();
-  const search = useSearchParams();
   const [connection, setConnection] = useState<Connection | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -59,7 +58,7 @@ export default function FacebookIntegrationPage() {
 
   useEffect(() => { if (!loading && !user) router.replace('/login'); }, [loading, user, router]);
   useEffect(() => {
-    const result = search.get('facebook');
+    const result = new URLSearchParams(window.location.search).get('facebook');
     if (result === 'connected') setNotice('Your Facebook Page is securely connected to MADSI.');
     else if (result && result !== 'authorization_cancelled') {
       const messages: Record<string, string> = {
@@ -74,7 +73,7 @@ export default function FacebookIntegrationPage() {
       };
       setError(messages[result] || 'Facebook authorization did not finish. Please try again.');
     }
-  }, [search]);
+  }, []);
   useEffect(() => {
     if (!loading && user && ['OWNER', 'ADMIN'].includes(user.role || '')) {
       void load().catch(e => setError(e instanceof Error ? e.message : 'Could not load Facebook status.'));
