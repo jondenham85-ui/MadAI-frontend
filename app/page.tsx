@@ -2,7 +2,6 @@
 import {useEffect,useState} from 'react';
 import Header from '@/components/layout/Header';
 import {useUser} from '@/context/UserContext';
-import {apiRequest} from '@/services/auth';
 type Health={status:string;service?:string;provider?:string;model?:string};
 const features=[
  {n:'01',icon:'◉',title:'Think with MADSI',tag:'INTELLIGENCE',copy:'Get clear answers, explore decisions and turn complex questions into practical next steps.'},
@@ -19,7 +18,7 @@ const plans=[
 ];
 export default function HomePage(){
  const {user}=useUser();const [health,setHealth]=useState<Health|null>(null);const [checked,setChecked]=useState(false);
- useEffect(()=>{let active=true;const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);apiRequest<Health>('/api/madsi-inference',{public:true,signal:controller.signal}).then(data=>{if(active)setHealth(data)}).catch(()=>{}).finally(()=>{clearTimeout(timer);if(active)setChecked(true)});return()=>{active=false;clearTimeout(timer);controller.abort()}},[]);
+ useEffect(()=>{let active=true;const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);fetch('/api/madsi-inference',{method:'GET',signal:controller.signal,cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error('Inference health unavailable');return await response.json() as Health}).then(data=>{if(active)setHealth(data)}).catch(()=>{}).finally(()=>{clearTimeout(timer);if(active)setChecked(true)});return()=>{active=false;clearTimeout(timer);controller.abort()}},[]);
  const online=health?.status==='ready';
  const startHref=user?'/synth':'/signup';
  return <><Header/><main className="mad-main nx-home">
