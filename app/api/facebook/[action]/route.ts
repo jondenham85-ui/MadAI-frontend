@@ -16,6 +16,7 @@ const version = () => /^v\d+\.\d+$/.test(value('META_GRAPH_API_VERSION')) ? valu
 const graphRoot = () => 'https://graph.facebook.com/' + version();
 const ready = () => Boolean((value('SUPABASE_URL') || value('NEXT_PUBLIC_SUPABASE_URL')) && value('SUPABASE_SERVICE_ROLE_KEY') &&
   (value('SUPABASE_ANON_KEY') || value('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || value('NEXT_PUBLIC_SUPABASE_ANON_KEY')) &&
+  (value('MADSI_FACEBOOK_STORAGE_BACKEND') !== 'neon' || value('MADSI_DATABASE_URL')) &&
   value('META_APP_ID') && value('META_APP_SECRET') && value('MADSI_FACEBOOK_TOKEN_ENCRYPTION_KEY'));
 const sbUrl = () => (value('SUPABASE_URL') || value('NEXT_PUBLIC_SUPABASE_URL')).replace(/\/+$/, '');
 const publicKey = () => value('SUPABASE_ANON_KEY') || value('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || value('NEXT_PUBLIC_SUPABASE_ANON_KEY');
