@@ -64,3 +64,8 @@ test('Cloudflare custom Worker entrypoint is not overwritten by the default Vine
  const entrypoints=[...config.matchAll(/entrypoint:\s*["']([^"']+)["']/g)].map(match=>match[1]);
  assert.deepEqual(entrypoints,['./worker/index.ts']);
 });
+
+test('Expired Facebook processing leases at the retry limit are moved to owner-review failure', () => {
+ assert.ok(route.includes("status=eq.processing&claimed_at=lt.' + encodeURIComponent(staleBefore) + '&attempts=gt.4"));
+ assert.ok(route.includes('Processing lease expired after the retry limit; owner review required.'));
+});

@@ -334,6 +334,10 @@ async function processWebhookEvents(request: Request) {
       method: 'PATCH', headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({ status: 'pending', claimed_at: null, last_error: 'Recovered expired processing lease.' }),
     });
+    await db('madsi_facebook_webhook_events?status=eq.processing&claimed_at=lt.' + encodeURIComponent(staleBefore) + '&attempts=gt.4', {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: 'failed', claimed_at: null, last_error: 'Processing lease expired after the retry limit; owner review required.' }),
+    });
     // Retry transient failures up to five total claims; exhausted events stay failed for inspection.
     await db('madsi_facebook_webhook_events?status=eq.failed&attempts=lt.5', {
       method: 'PATCH', headers: { Prefer: 'return=minimal' },
