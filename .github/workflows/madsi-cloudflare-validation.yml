@@ -1,0 +1,54 @@
+name: MADSI Cloudflare validation
+
+on:
+  push:
+    branches:
+      - feat/madsi-facebook-cloudflare
+  pull_request:
+    branches:
+      - main
+      - feat/madsi-facebook-cloudflare
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: madsi-cloudflare-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install existing application dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run existing application checks
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Scan Next.js compatibility with Vinext
+        run: npx --yes vinext check
+
+      - name: Initialize a temporary Cloudflare Workers build
+        run: npx --yes vinext init --platform=cloudflare --cdn-cache=none --data-cache=none --image-optimization=none --no-prerender
+
+      - name: Type-check and test after Vinext initialization
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Build the Cloudflare Workers application
+        run: npm run build:vinext
