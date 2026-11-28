@@ -1,6 +1,9 @@
 name: MADSI Cloudflare isolated preview
 
 on:
+  push:
+    branches:
+      - feat/madsi-facebook-cloudflare
   workflow_dispatch:
     inputs:
       preview_name:
