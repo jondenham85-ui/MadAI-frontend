@@ -19,7 +19,10 @@ The feature branch now supports two explicit storage backends for the Facebook i
 
 Supabase remains the identity provider. The API validates the bearer token with Supabase Auth and reads the user's OWNER/ADMIN profile there. When the backend is `neon`, only Facebook integration records are routed to Neon; profile lookups remain on Supabase. The Neon connection string is server-only and must never be exposed to the browser.
 
-Apply `20261128000100_madsi_facebook.sql` and then `20261128000200_madsi_facebook_neon_auth_decoupling.sql` to Neon staging. The second migration removes cross-database foreign-key dependencies on `auth.users` and grants the dedicated `madsi_staging` database role access through RLS. Supabase production is not migrated by the Neon workflows.
+Apply `20261128000100_madsi_facebook.sql` and then `neon/migrations/20261128000200_madsi_facebook_auth_decoupling.sql` to Neon staging. The second migration removes cross-database foreign-key dependencies on `auth.users` and grants the dedicated `madsi_staging` database role access through RLS. Supabase production is not migrated by the Neon workflows.
+
+The Neon-only auth-decoupling SQL lives under `neon/migrations/`, not `supabase/migrations/`, so Supabase CLI migration runs cannot accidentally apply Neon-specific constraint or role changes to the production Supabase project.
+
 
 ## Cost-conscious staging and validation
 
@@ -184,7 +187,7 @@ or the persistent `main` staging branch.
 After creating or reusing the branch, the workflow uses the action's
 short-lived branch connection output to apply both
 `20261128000100_madsi_facebook.sql` and
-`20261128000200_madsi_facebook_neon_auth_decoupling.sql`, then verifies
+`neon/migrations/20261128000200_madsi_facebook_auth_decoupling.sql`, then verifies
 that all three Facebook tables exist with RLS enabled. The connection string is passed
 only between workflow steps through the runner environment; it is not logged,
 stored as a repository secret, or injected into the application preview.
