@@ -1,3 +1,4 @@
+import { facebookStorage } from "@/lib/madsi-facebook-storage";
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ const ready = () => Boolean((value('SUPABASE_URL') || value('NEXT_PUBLIC_SUPABAS
 const sbUrl = () => (value('SUPABASE_URL') || value('NEXT_PUBLIC_SUPABASE_URL')).replace(/\/+$/, '');
 const publicKey = () => value('SUPABASE_ANON_KEY') || value('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || value('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
-async function db(path: string, init: RequestInit = {}) {
+async function supabaseDb(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   headers.set('apikey', value('SUPABASE_SERVICE_ROLE_KEY'));
   headers.set('Authorization', 'Bearer ' + value('SUPABASE_SERVICE_ROLE_KEY'));
@@ -33,6 +34,10 @@ async function db(path: string, init: RequestInit = {}) {
   if (!response.ok) throw new Error('DATABASE_REQUEST_FAILED');
   return data;
 }
+async function db(path: string, init: RequestInit = {}) {
+  return facebookStorage(path, init, supabaseDb);
+}
+
 async function owner(request: Request) {
   const token = (request.headers.get('authorization') || '').match(/^Bearer\s+([A-Za-z0-9._~-]+)$/)?.[1];
   if (!token) throw new Error('AUTH_REQUIRED');
