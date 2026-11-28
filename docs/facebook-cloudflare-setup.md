@@ -174,9 +174,9 @@ For a future production Workers Builds connection, use a dedicated `mad-ai-front
 
 ## Separate the frontend from the inference Worker build
 
-The frontend release pipeline is managed by the repository's guarded GitHub Actions workflows. A legacy Cloudflare Workers Builds connection had been watching this frontend repository while targeting the separate `madsi-inference` service and running `wrangler preview`. Its branch-only build configurations were removed. This removes the accidental frontend-to-inference build path; it does not delete, redeploy, or change the active `madsi-inference` Worker.
+The frontend release pipeline is managed by the repository's guarded GitHub Actions workflows. A legacy Cloudflare Workers Builds connection had been watching this frontend repository while targeting the separate `madsi-inference` service and running `wrangler preview`. That GitHub repository connection has been disconnected from Workers Builds so it cannot recreate branch triggers or deploy frontend changes to the inference service. This does not delete, redeploy, or change the active `madsi-inference` Worker.
 
-Do not reconnect the frontend repository to the `madsi-inference` Worker build service. The frontend is deployed as `mad-ai-frontend`; inference remains a separate service binding.
+Do not reconnect the frontend repository to the `madsi-inference` Worker build service. The frontend is deployed as `mad-ai-frontend` by GitHub Actions; inference remains a separate service binding.
 
 ## Guarded Cloudflare production release
 
