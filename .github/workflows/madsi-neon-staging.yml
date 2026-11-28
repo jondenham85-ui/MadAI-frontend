@@ -72,6 +72,8 @@ jobs:
             ];
             actual_count integer;
             rls_count integer;
+            auth_fk_count integer;
+            policy_count integer;
           BEGIN
             SELECT count(*) INTO actual_count
             FROM information_schema.tables
@@ -90,6 +92,31 @@ jobs:
               AND c.relrowsecurity;
             IF rls_count <> 3 THEN
               RAISE EXCEPTION 'RLS must be enabled on all 3 MADSI Facebook tables; found %', rls_count;
+            END IF;
+
+            SELECT count(*) INTO auth_fk_count
+            FROM pg_constraint c
+            JOIN pg_class t ON t.oid = c.conrelid
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            JOIN pg_class referenced ON referenced.oid = c.confrelid
+            JOIN pg_namespace referenced_schema ON referenced_schema.oid = referenced.relnamespace
+            WHERE n.nspname = 'public'
+              AND t.relname = ANY(expected)
+              AND c.contype = 'f'
+              AND referenced_schema.nspname = 'auth'
+              AND referenced.relname = 'users';
+            IF auth_fk_count <> 0 THEN
+              RAISE EXCEPTION 'Neon staging tables must not depend on Supabase Auth foreign keys; found %', auth_fk_count;
+            END IF;
+
+            SELECT count(*) INTO policy_count
+            FROM pg_policies
+            WHERE schemaname = 'public'
+              AND tablename = ANY(expected)
+              AND policyname = 'madsi_staging_backend_access'
+              AND roles @> ARRAY['madsi_staging']::name[];
+            IF policy_count <> 3 THEN
+              RAISE EXCEPTION 'Expected private Neon backend RLS policies on all 3 tables; found %', policy_count;
             END IF;
           END
           $verify$;
