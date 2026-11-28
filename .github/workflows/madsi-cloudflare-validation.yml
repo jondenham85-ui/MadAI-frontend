@@ -45,6 +45,21 @@ jobs:
       - name: Initialize a temporary Cloudflare Workers build
         run: npx --yes vinext init --platform=cloudflare --cdn-cache=none --data-cache=none --image-optimization=none --no-prerender
 
+      - name: Report generated Cloudflare configuration
+        run: |
+          echo '--- package.json ---'
+          cat package.json
+          for file in vite.config.ts cloudflare.config.ts wrangler.jsonc wrangler.toml; do
+            if [ -f "$file" ]; then
+              echo "--- $file ---"
+              cat "$file"
+            fi
+          done
+          echo '--- generated file status ---'
+          git status --short
+          echo '--- package changes ---'
+          git diff -- package.json
+
       - name: Type-check and test after Vinext initialization
         run: |
           npm run typecheck
