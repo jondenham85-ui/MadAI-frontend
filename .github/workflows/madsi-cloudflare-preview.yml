@@ -44,7 +44,11 @@ jobs:
             fi
           done
           if [[ "$NEXT_PUBLIC_SUPABASE_URL" != https://*.supabase.co ]]; then
-            echo "::error::STAGING_SUPABASE_URL must point to an isolated Supabase staging project, not a production endpoint."
+            echo "::error::STAGING_SUPABASE_URL must point to a Supabase project URL."
+            exit 1
+          fi
+          if [[ "$NEXT_PUBLIC_SUPABASE_URL" == "https://rcetiocftggebqzfuncd.supabase.co" ]]; then
+            echo "::error::Refusing to deploy a preview against MADSI production Supabase. Neon is the staging PostgreSQL database; configure a separate non-production Supabase Auth/API project for preview identity validation."
             exit 1
           fi
           if [[ "$PREVIEW_NAME" != madsi-* ]]; then
