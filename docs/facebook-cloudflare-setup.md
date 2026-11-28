@@ -164,6 +164,14 @@ After the Preview URL is created, configure the Preview's server-side variables/
 Cloudflare documents Previews as separate environments with their own settings and URL: https://developers.cloudflare.com/workers/previews/. For a normal deployment, use `npx cf auth login`, followed by `npx cf deploy --dry-run` and then `npx cf deploy`. The last command uploads and deploys the Worker and must not be run without explicit production approval.
 
 
+## Cloudflare Workers Builds branch preview
+
+The connected feature-branch trigger uses the native Vinext Preview command:
+`npx @vinext/cloudflare previews deploy --preview-name madsi-facebook-cloudflare`.
+Its build command is intentionally empty because this command builds the app and deploys the Preview itself. This trigger is scoped only to `feat/madsi-facebook-cloudflare`; it does not deploy the production Worker or change the production domain. The separate GitHub Actions preview workflow also validates and deploys the isolated Preview.
+
+For a future production Workers Builds connection, use a dedicated `mad-ai-frontend` Worker with the production branch set to `main`, an empty build command, and `npx @vinext/cloudflare deploy` as its deploy command. Do not repoint the existing `madsi-inference` Worker or its build configuration to the frontend application.
+
 ## Automatic Neon pull-request branches
 
 The repository includes `.github/workflows/madsi-neon-pr-branches.yml`.
