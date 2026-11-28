@@ -20,7 +20,9 @@ test('homepage presents MADSI as a synthetic-intelligence workspace, not a chat-
 
 test('homepage keeps its live backend connection check and production health endpoint', () => {
   const source = fs.readFileSync(path.join(root, 'app/page.tsx'), 'utf8');
-  assert.match(source, /apiRequest<Health>\('\/health'/);
-  assert.match(source, /CORE CONNECTION ONLINE/);
-  assert.match(source, /CONNECTION UNVERIFIED/);
+  assert.match(source, /fetch\('\/api\/madsi-inference'/);
+  assert.match(source, /health\?\.status==='ready'/);
+  assert.match(source, /CHECKING SYSTEM/);
+  assert.match(source, /INTELLIGENCE ONLINE/);
+  assert.match(source, /INTELLIGENCE UNVERIFIED/);
 });

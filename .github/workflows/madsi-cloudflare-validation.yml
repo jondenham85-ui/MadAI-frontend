@@ -1,0 +1,126 @@
+name: MADSI Cloudflare validation
+
+on:
+  push:
+    branches:
+      - feat/madsi-facebook-cloudflare
+  pull_request:
+    branches:
+      - main
+      - feat/madsi-facebook-cloudflare
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: madsi-cloudflare-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate Facebook migration against disposable PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin;
+          create schema auth;
+          create table auth.users (id uuid primary key);
+          SQL
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261128000100_madsi_facebook.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          insert into auth.users (id) values
+            ('11111111-1111-4111-8111-111111111111'),
+            ('22222222-2222-4222-8222-222222222222');
+          insert into public.madsi_facebook_connections
+            (owner_user_id, page_id, page_name, page_access_token_ciphertext)
+          values
+            ('11111111-1111-4111-8111-111111111111', '1420455891158665', 'MADSI Test Page', 'test-ciphertext-one'),
+            ('22222222-2222-4222-8222-222222222222', '1420455891158665', 'MADSI Test Page', 'test-ciphertext-two');
+          DO $madsi_check$
+          BEGIN
+            IF (SELECT count(*) FROM public.madsi_facebook_connections WHERE page_id = '1420455891158665') <> 2 THEN
+              RAISE EXCEPTION 'Both owners must be able to connect the same Facebook Page';
+            END IF;
+          END
+          $madsi_check$;
+          SQL
+
+      - name: Install existing application dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run existing application checks
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Scan Next.js compatibility with Vinext
+        run: npx --yes vinext check
+
+      - name: Initialize a temporary Cloudflare Workers build
+        run: npx --yes vinext init --platform=cloudflare --cdn-cache=none --data-cache=none --image-optimization=none --no-prerender
+
+      - name: Report generated Cloudflare configuration
+        run: |
+          echo '--- package.json ---'
+          cat package.json
+          for file in vite.config.ts cloudflare.config.ts wrangler.jsonc wrangler.toml; do
+            if [ -f "$file" ]; then
+              echo "--- $file ---"
+              cat "$file"
+            fi
+          done
+          echo '--- generated file status ---'
+          git status --short
+          echo '--- package changes ---'
+          git diff -- package.json
+
+      - name: Type-check and test after Vinext initialization
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Build the Cloudflare Workers application
+        run: npm run build:vinext
+
+      - name: Smoke-test the built Worker locally
+        run: |
+          npm run start:vinext -- --host 127.0.0.1 --port 8788 > "$RUNNER_TEMP/madsi-worker-preview.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --show-error --fail http://127.0.0.1:8788/ -o "$RUNNER_TEMP/madsi-worker-home.html"; then
+              echo "Built Worker preview returned HTTP 200 for /"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/madsi-worker-preview.log"
+          exit 1

@@ -1,3 +1,6 @@
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 const SUPABASE_FUNCTIONS = require('./lib/production-backend.cjs');
 
 /** @type {import('next').NextConfig} */
@@ -11,4 +14,4 @@ const nextConfig = {
     ];
   },
 };
-module.exports = nextConfig;
+export default nextConfig;

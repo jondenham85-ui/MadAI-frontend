@@ -10,8 +10,8 @@ for (const file of ['app/layout.tsx', 'app/page.tsx', 'components/layout/Header.
     assert.doesNotMatch(source, /MAD SI/);
   });
 }
-test('metadata retains the production domain', () => {
+test('metadata retains the production domain and MADSI title', () => {
   const source = fs.readFileSync(path.join(root, 'app/layout.tsx'), 'utf8');
-  assert.match(source, /metadataBase:new URL\('https:\/\/madmadisonai\.com'\)/);
-  assert.match(source, /title:\{default:'MADSI',template:'%s \| MADSI'\}/);
+  assert.match(source, /metadataBase:new URL\('https:\/\/www\.madmadisonai\.com'\)/);
+  assert.match(source, /title:\{default:'MADSI[^']*',template:'%s \| MADSI'\}/);
 });

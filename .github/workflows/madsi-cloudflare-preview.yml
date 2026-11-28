@@ -1,0 +1,95 @@
+name: MADSI Cloudflare isolated preview
+
+on:
+  push:
+    branches:
+      - feat/madsi-facebook-cloudflare
+  workflow_dispatch:
+    inputs:
+      preview_name:
+        description: Cloudflare preview label (not a production Worker name)
+        required: true
+        default: madsi-facebook-cloudflare
+
+permissions:
+  contents: read
+
+concurrency:
+  group: madsi-cloudflare-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy-preview:
+    if: github.ref == 'refs/heads/feat/madsi-facebook-cloudflare'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.MADSI_AUTH_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.MADSI_AUTH_SUPABASE_PUBLISHABLE_KEY }}
+      MADSI_FACEBOOK_STORAGE_BACKEND: neon
+      NEON_STAGING_DATABASE_URL: ${{ secrets.NEON_STAGING_DATABASE_URL }}
+      PREVIEW_NAME: ${{ inputs.preview_name || 'madsi-facebook-cloudflare' }}
+    steps:
+      - name: Check out the approved feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/madsi-facebook-cloudflare
+          persist-credentials: false
+
+      - name: Require isolated preview credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required repository secret for ${name}. Configure preview-only credentials in GitHub Actions secrets; do not paste secrets into chat."
+              exit 1
+            fi
+          done
+          if [[ ! "$NEXT_PUBLIC_SUPABASE_URL" =~ ^https://[a-zA-Z0-9-]+\.supabase\.co/?$ ]]; then
+            echo "::error::MADSI_AUTH_SUPABASE_URL must point to the connected MADSI Supabase Auth project URL."
+            exit 1
+          fi
+          if [ -z "${NEON_STAGING_DATABASE_URL:-}" ]; then
+            echo "::error::Missing NEON_STAGING_DATABASE_URL. Facebook integration records must use the isolated Neon staging database."
+            exit 1
+          fi
+          if [[ "$NEON_STAGING_DATABASE_URL" != *"ep-morning-lake-be1pzja7-pooler.c-9.us-east-2.aws.neon.tech"* || "$NEON_STAGING_DATABASE_URL" != *"/madsi_staging"* ]]; then
+            echo "::error::Refusing preview: Neon URL must target the MADSI-Staging project and madsi_staging database."
+            exit 1
+          fi
+          if [[ "$PREVIEW_NAME" != madsi-* ]]; then
+            echo "::error::Preview name must start with madsi-."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install application dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run application checks
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Build and deploy isolated Cloudflare Preview
+        run: npx @vinext/cloudflare previews deploy --preview-name "$PREVIEW_NAME"
+
+      - name: Record deployment boundary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## MADSI Cloudflare Preview"
+            echo "- Branch: feat/madsi-facebook-cloudflare"
+            echo "- Preview label: $PREVIEW_NAME"
+            echo "- This workflow deploys a Cloudflare Preview only."
+            echo "- It does not deploy the production Worker, change DNS, or migrate production Supabase."
+            echo "- Configure preview-only server secrets and Meta callback settings in Cloudflare before testing Facebook OAuth."
+          } >> "$GITHUB_STEP_SUMMARY"
