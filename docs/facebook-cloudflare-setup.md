@@ -23,6 +23,8 @@ Apply `20261128000100_madsi_facebook.sql` and then `neon/migrations/202611280002
 
 The Neon-only auth-decoupling SQL lives under `neon/migrations/`, not `supabase/migrations/`, so Supabase CLI migration runs cannot accidentally apply Neon-specific constraint or role changes to the production Supabase project.
 
+The persistent Neon `main` staging branch has also been updated and verified: all three Facebook tables retain RLS, all three Supabase `auth.users` foreign keys are removed, and the dedicated `madsi_staging` role has its private backend policy. A temporary CRUD check exercised insert/read/delete for OAuth state, Page connection, and publish approval records using that role; all test rows were removed.
+
 
 ## Cost-conscious staging and validation
 
