@@ -24,7 +24,8 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.MADSI_AUTH_SUPABASE_PUBLISHABLE_KEY }}
+      MADSI_FACEBOOK_STORAGE_BACKEND: neon
       PREVIEW_NAME: ${{ inputs.preview_name }}
     steps:
       - name: Check out the approved feature branch
@@ -47,8 +48,12 @@ jobs:
             echo "::error::STAGING_SUPABASE_URL must point to a Supabase project URL."
             exit 1
           fi
-          if [[ "$NEXT_PUBLIC_SUPABASE_URL" == "https://rcetiocftggebqzfuncd.supabase.co" ]]; then
-            echo "::error::Refusing to deploy a preview against MADSI production Supabase. Neon is the staging PostgreSQL database; configure a separate non-production Supabase Auth/API project for preview identity validation."
+          if [ -z "${{ secrets.NEON_STAGING_DATABASE_URL }}" ]; then
+            echo "::error::Missing NEON_STAGING_DATABASE_URL. Facebook integration records must use the isolated Neon staging database."
+            exit 1
+          fi
+          if [[ "${{ secrets.NEON_STAGING_DATABASE_URL }}" != *"ep-morning-lake-be1pzja7-pooler.c-9.us-east-2.aws.neon.tech"* || "${{ secrets.NEON_STAGING_DATABASE_URL }}" != *"/madsi_staging"* ]]; then
+            echo "::error::Refusing preview: Neon URL must target the MADSI-Staging project and madsi_staging database."
             exit 1
           fi
           if [[ "$PREVIEW_NAME" != madsi-* ]]; then
