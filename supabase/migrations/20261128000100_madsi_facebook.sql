@@ -12,7 +12,6 @@ create table if not exists public.madsi_facebook_connections (
   page_id text not null unique,
   page_name text not null,
   page_access_token_ciphertext text not null,
-  user_access_token_ciphertext text not null,
   granted_scopes text[] not null default '{}',
   page_tasks text[] not null default '{}',
   status text not null default 'connected' check (status in ('connected', 'revoked', 'error')),
