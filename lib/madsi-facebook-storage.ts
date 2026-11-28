@@ -108,38 +108,15 @@ export async function facebookStorage(
   if (table === "madsi_facebook_webhook_events" && method === "GET") {
     return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + " ORDER BY received_at ASC" + limitClause, values);
   }
+  if (table === "madsi_facebook_webhook_events" && method === "GET") {
+    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + " ORDER BY received_at ASC" + limitClause, values);
+  }
   if (table === "madsi_facebook_webhook_events" && method === "PATCH") {
     const updates = body as JsonRecord;
     const keys = Object.keys(updates);
     const permitted = ["status", "processed_at", "attempts", "last_error", "event_metadata", "claimed_at"];
     if (!keys.length || keys.some(key => !permitted.includes(key)) || !where.length) throw new Error("DATABASE_REQUEST_FAILED");
-    const assignments = keys.map((key, index) => '"' + key + '" = 
-    const events = Array.isArray(body) ? body : [body];
-    if (!events.length || events.length > 100) throw new Error("DATABASE_REQUEST_FAILED");
-    const inserted: JsonRecord[] = [];
-    for (const event of events) {
-      const row = await run("INSERT INTO public.madsi_facebook_webhook_events (event_hash, page_id, field, event_time, event_metadata) VALUES ($1, $2, $3, $4, $5::jsonb) ON CONFLICT (event_hash) DO NOTHING RETURNING event_hash", [event.event_hash, event.page_id, event.field, event.event_time, JSON.stringify(event.event_metadata ?? {})]);
-      inserted.push(...row);
-    }
-    return inserted;
-  }
-  if (table === "madsi_facebook_publish_approvals" && method === "POST") {
-    return run("INSERT INTO public.madsi_facebook_publish_approvals (owner_user_id, message, status, expires_at) VALUES ($1, $2, $3, $4) RETURNING id, expires_at", [body.owner_user_id, body.message, body.status, body.expires_at]);
-  }
-  if (table === "madsi_facebook_publish_approvals" && method === "GET") {
-    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + limitClause, values);
-  }
-  if (table === "madsi_facebook_publish_approvals" && method === "PATCH") {
-    const updates = body as JsonRecord;
-    const keys = Object.keys(updates);
-    if (!keys.length || keys.some(key => !["status", "consumed_at"].includes(key))) throw new Error("DATABASE_REQUEST_FAILED");
-    const assignments = keys.map(key => '"' + key + '" = $' + (values.length + keys.indexOf(key) + 1));
-    values.push(...keys.map(key => updates[key]));
-    return run("UPDATE public." + table + " SET " + assignments.join(", ") + clause + " RETURNING id", values);
-  }
-  throw new Error("DATABASE_REQUEST_FAILED");
-}
- + (values.length + index + 1) + (key === "event_metadata" ? "::jsonb" : ""));
+    const assignments = keys.map((key, index) => '"' + key + '" = $' + (values.length + index + 1) + (key === "event_metadata" ? "::jsonb" : ""));
     values.push(...keys.map(key => key === "event_metadata" ? JSON.stringify(updates[key]) : updates[key]));
     return run("UPDATE public." + table + " SET " + assignments.join(", ") + clause + " RETURNING event_hash, status, attempts", values);
   }
