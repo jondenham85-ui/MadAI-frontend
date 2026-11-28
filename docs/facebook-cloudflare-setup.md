@@ -116,7 +116,7 @@ Requested permissions:
 
 The person authorizing must have appropriate Page tasks, including CREATE_CONTENT or MANAGE for publishing and ANALYZE for insights. Meta may require App Review / Advanced Access before people outside the app's roles can use the integration.
 
-For Webhooks, configure callback URL `https://www.madmadisonai.com/api/facebook/webhooks`, use the same `META_WEBHOOK_VERIFY_TOKEN`, and enable the Page fields needed by the product. Webhook requests are signature-checked and stored in the event inbox. The protected processor claims pending events, recovers expired processing leases, and adds a deterministic `madsi_triage` classification to each event for owner review. Its response explicitly reports `mode: triage_only`; it does not publish posts, reply to comments, send messages, or trigger other external actions. A trusted scheduler or operator must invoke this endpoint; no recurring schedule is configured yet.
+For Webhooks, configure callback URL `https://www.madmadisonai.com/api/facebook/webhooks`, use the same `META_WEBHOOK_VERIFY_TOKEN`, and enable the Page fields needed by the product. Webhook requests are signature-checked and stored in the event inbox. The protected processor claims pending events, recovers expired processing leases, retries transient failures up to five claims, and adds a deterministic `madsi_triage` classification to each event for owner review. Its response explicitly reports `mode: triage_only`; it does not publish posts, reply to comments, send messages, or trigger other external actions. A trusted scheduler or operator must invoke this endpoint; no recurring schedule is configured yet.
 
 ## API routes
 

@@ -11,7 +11,7 @@ const allowedColumns: Record<string, string[]> = {
   madsi_facebook_publish_approvals: ["id", "owner_user_id", "message", "status", "expires_at", "consumed_at", "created_at"],
   madsi_facebook_webhook_events: ["event_hash", "page_id", "field", "event_time", "event_metadata", "status", "received_at", "claimed_at", "processed_at", "attempts", "last_error"],
 };
-const filters = new Set(["state_hash", "owner_user_id", "status", "id", "expires_at", "consumed_at", "event_hash", "page_id", "claimed_at"]);
+const filters = new Set(["state_hash", "owner_user_id", "status", "id", "expires_at", "consumed_at", "event_hash", "page_id", "claimed_at", "attempts"]);
 
 function selectedColumns(table: string, requested: string | null) {
   const allowed = allowedColumns[table];

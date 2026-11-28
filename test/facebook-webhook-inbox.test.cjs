@@ -30,3 +30,9 @@ test('Facebook event processor uses protected triage and retryable leases', () =
  assert.ok(processor.includes('owner_review'));
  assert.ok(storage.includes('table === "madsi_facebook_webhook_events" && method === "PATCH"'));
 });
+
+test('Failed Facebook event triage is retried with a bounded attempt count', () => {
+ assert.ok(route.includes("status=eq.failed&attempts=lt.5"));
+ assert.ok(route.includes("attempts=lt.5"));
+ assert.ok(route.includes("up to five total claims"));
+});

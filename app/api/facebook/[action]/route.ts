@@ -325,9 +325,14 @@ async function processWebhookEvents(request: Request) {
   if (!ready()) return json({ error: 'Facebook storage is not configured.' }, 503);
   const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
   try {
-    await db('madsi_facebook_webhook_events?status=eq.processing&claimed_at=lt.' + encodeURIComponent(staleBefore), {
+    await db('madsi_facebook_webhook_events?status=eq.processing&claimed_at=lt.' + encodeURIComponent(staleBefore) + '&attempts=lt.5', {
       method: 'PATCH', headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({ status: 'pending', claimed_at: null, last_error: 'Recovered expired processing lease.' }),
+    });
+    // Retry transient failures up to five total claims; exhausted events stay failed for inspection.
+    await db('madsi_facebook_webhook_events?status=eq.failed&attempts=lt.5', {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: 'pending', last_error: null }),
     });
     const pending = await db('madsi_facebook_webhook_events?status=eq.pending&select=event_hash,page_id,field,event_time,event_metadata,attempts&limit=20');
     const events = Array.isArray(pending) ? pending : [];
