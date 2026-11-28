@@ -177,7 +177,16 @@ value in source code or chat. Neon PR branches are disposable database
 branches under the staging project; they do not change production Supabase
 or the persistent `main` staging branch.
 
-The PR branch workflow provisions and cleans up databases only. It does not
-yet run migrations or inject a database URL into the application preview.
-Those are separate follow-up steps and should be added only when the app's
-preview workflow is ready to consume an isolated per-PR database safely.
+After creating or reusing the branch, the workflow uses the action's
+short-lived branch connection output to apply
+`supabase/migrations/20261128000100_madsi_facebook.sql` and verify that all
+three Facebook tables exist with RLS enabled. The connection string is passed
+only between workflow steps through the runner environment; it is not logged,
+stored as a repository secret, or injected into the application preview.
+
+This automates isolated database provisioning and schema verification for
+each PR. It does not make Neon a substitute for Supabase Auth, Storage, JWT
+validation, or the Supabase service-role API, and it does not configure live
+Facebook/Meta credentials. The application preview still needs its own
+staging Supabase and Cloudflare Preview settings before end-to-end OAuth
+testing.
