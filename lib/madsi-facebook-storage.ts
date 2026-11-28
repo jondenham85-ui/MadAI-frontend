@@ -108,9 +108,6 @@ export async function facebookStorage(
   if (table === "madsi_facebook_webhook_events" && method === "GET") {
     return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + " ORDER BY received_at ASC" + limitClause, values);
   }
-  if (table === "madsi_facebook_webhook_events" && method === "GET") {
-    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + " ORDER BY received_at ASC" + limitClause, values);
-  }
   if (table === "madsi_facebook_webhook_events" && method === "PATCH") {
     const updates = body as JsonRecord;
     const keys = Object.keys(updates);

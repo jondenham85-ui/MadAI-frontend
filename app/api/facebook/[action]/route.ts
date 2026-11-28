@@ -15,6 +15,11 @@ const site = () => (value('MADSI_APP_URL') || 'https://www.madmadisonai.com').re
 const callback = () => site() + '/api/facebook/callback';
 const version = () => /^v\d+\.\d+$/.test(value('META_GRAPH_API_VERSION')) ? value('META_GRAPH_API_VERSION') : 'v27.0';
 const graphRoot = () => 'https://graph.facebook.com/' + version();
+const storageReady = () => {
+  const backend = value('MADSI_FACEBOOK_STORAGE_BACKEND') || 'supabase';
+  const databaseReady = backend === 'neon' ? Boolean(value('MADSI_DATABASE_URL')) : backend === 'supabase' && Boolean(value('SUPABASE_SERVICE_ROLE_KEY'));
+  return Boolean((value('SUPABASE_URL') || value('NEXT_PUBLIC_SUPABASE_URL')) && databaseReady);
+};
 const ready = () => Boolean((value('SUPABASE_URL') || value('NEXT_PUBLIC_SUPABASE_URL')) && value('SUPABASE_SERVICE_ROLE_KEY') &&
   (value('SUPABASE_ANON_KEY') || value('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || value('NEXT_PUBLIC_SUPABASE_ANON_KEY')) &&
   (value('MADSI_FACEBOOK_STORAGE_BACKEND') !== 'neon' || value('MADSI_DATABASE_URL')) &&
@@ -322,7 +327,7 @@ async function processWebhookEvents(request: Request) {
   let mismatch = secret.length ^ supplied.length;
   for (let i = 0; i < Math.min(secret.length, supplied.length); i++) mismatch |= secret.charCodeAt(i) ^ supplied.charCodeAt(i);
   if (mismatch !== 0) return json({ error: 'Unauthorized' }, 401);
-  if (!ready()) return json({ error: 'Facebook storage is not configured.' }, 503);
+  if (!storageReady()) return json({ error: 'Facebook storage is not configured.' }, 503);
   const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
   try {
     await db('madsi_facebook_webhook_events?status=eq.processing&claimed_at=lt.' + encodeURIComponent(staleBefore) + '&attempts=lt.5', {

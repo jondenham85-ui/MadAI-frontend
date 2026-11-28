@@ -36,3 +36,15 @@ test('Failed Facebook event triage is retried with a bounded attempt count', () 
  assert.ok(route.includes("attempts=lt.5"));
  assert.ok(route.includes("up to five total claims"));
 });
+
+test('Event processor storage readiness is independent of Meta OAuth credentials', () => {
+ assert.ok(route.includes("if (!storageReady()) return json({ error: 'Facebook storage is not configured.' }, 503)"));
+ const processor=route.slice(route.indexOf('async function processWebhookEvents'),route.indexOf('function failure'));
+ assert.ok(!processor.includes('if (!ready())'));
+ assert.ok(route.includes("backend === 'neon' ? Boolean(value('MADSI_DATABASE_URL'))"));
+});
+test('Neon event storage has exactly one GET implementation and supports PATCH claims', () => {
+ const getBranches=(storage.match(/table === "madsi_facebook_webhook_events" && method === "GET"/g)||[]).length;
+ assert.equal(getBranches,1);
+ assert.ok(storage.includes('method === "PATCH"'));
+});
