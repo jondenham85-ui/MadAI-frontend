@@ -91,10 +91,10 @@ test('pricing offers annual billing at the configured Stripe yearly price points
 });
 
 
-test('homepage status checks live MADSI inference rather than only the API health route', () => {
+test('homepage status checks live MADSI inference through its direct Next.js route', () => {
   const source = fs.readFileSync(path.join(__dirname, '../app/page.tsx'), 'utf8');
-  assert.match(source, /apiRequest<Health>\('\/api\/madsi-inference'/);
+  assert.match(source, /fetch\('\/api\/madsi-inference'/);
   assert.match(source, /health\?\.status==='ready'/);
   assert.match(source, /INTELLIGENCE ONLINE/);
-  assert.doesNotMatch(source, /apiRequest<Health>\('\/health'/);
+  assert.doesNotMatch(source, /apiRequest<Health>\('\/api\/madsi-inference'/);
 });
