@@ -57,6 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261128000100_madsi_facebook.sql
+          psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261128000200_madsi_facebook_neon_auth_decoupling.sql
 
       - name: Verify staging schema and row-level security
         run: |
