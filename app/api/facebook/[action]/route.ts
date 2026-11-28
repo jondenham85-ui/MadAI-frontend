@@ -13,10 +13,10 @@ const site = () => (value('MADSI_APP_URL') || 'https://www.madmadisonai.com').re
 const callback = () => site() + '/api/facebook/callback';
 const version = () => /^v\d+\.\d+$/.test(value('META_GRAPH_API_VERSION')) ? value('META_GRAPH_API_VERSION') : 'v27.0';
 const graphRoot = () => 'https://graph.facebook.com/' + version();
-const ready = () => Boolean(value('SUPABASE_URL') && value('SUPABASE_SERVICE_ROLE_KEY') &&
+const ready = () => Boolean((value('SUPABASE_URL') || value('NEXT_PUBLIC_SUPABASE_URL')) && value('SUPABASE_SERVICE_ROLE_KEY') &&
   (value('SUPABASE_ANON_KEY') || value('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || value('NEXT_PUBLIC_SUPABASE_ANON_KEY')) &&
   value('META_APP_ID') && value('META_APP_SECRET') && value('MADSI_FACEBOOK_TOKEN_ENCRYPTION_KEY'));
-const sbUrl = () => value('SUPABASE_URL').replace(/\/+$/, '');
+const sbUrl = () => (value('SUPABASE_URL') || value('NEXT_PUBLIC_SUPABASE_URL')).replace(/\/+$/, '');
 const publicKey = () => value('SUPABASE_ANON_KEY') || value('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') || value('NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
 async function db(path: string, init: RequestInit = {}) {
@@ -167,9 +167,8 @@ async function callbackGet(request: Request) {
       body: JSON.stringify({
         owner_user_id: pending.owner_user_id, page_id: selected.id, page_name: selected.name,
         page_access_token_ciphertext: await encrypt(selected.access_token),
-        user_access_token_ciphertext: await encrypt(longToken.access_token),
         granted_scopes: granted, page_tasks: selected.tasks || [], status: 'connected',
-        token_expires_at: expiry, updated_at: new Date().toISOString(),
+        token_expires_at: expiry, last_verified_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }),
     });
     return redirect('connected');
@@ -199,7 +198,9 @@ async function getPosts(ownerId: string) {
 async function getInsights(ownerId: string) {
   const saved = await getConnection(ownerId);
   const data = await graph('/' + encodeURIComponent(saved.page_id) + '/insights', {
-    metric: 'page_impressions,page_post_engagements,page_follows', period: 'day', date_preset: 'last_7d', access_token: saved.token,
+    metric: 'page_impressions,page_post_engagements,page_follows', period: 'day',
+    since: new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10),
+    until: new Date().toISOString().slice(0, 10), access_token: saved.token,
   });
   return json({ insights: Array.isArray(data.data) ? data.data : [] });
 }
