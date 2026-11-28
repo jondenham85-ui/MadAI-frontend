@@ -127,9 +127,19 @@ Deno.serve(async (req: Request) => {
       const code = params.get("code") || "";
       if (!await validHmac(params)) return redirect(SITE + "/business?shopify=invalid_hmac");
       if (!/^[a-f0-9]{64}$/i.test(state) || !/^[a-f0-9]+$/i.test(code)) return redirect(SITE + "/business?shopify=invalid_state");
-      const { data: pending } = await db.from("madsi_shopify_oauth_states").select("state_hash,owner_user_id,expires_at").eq("state_hash", await sha256(state)).maybeSingle();
-      if (!pending || Date.parse(pending.expires_at) < Date.now()) return redirect(SITE + "/business?shopify=expired");
-      const { data: claimed } = await db.from("madsi_shopify_oauth_states").delete().eq("state_hash", await sha256(state)).select("state_hash").maybeSingle();
+      const { data: pending } = await db.from("madsi_shopify_oauth_states")
+        .select("state_hash,owner_user_id,expires_at,shop_domain")
+        .eq("state_hash", await sha256(state)).maybeSingle();
+      if (!pending || Date.parse(pending.expires_at) < Date.now() ||
+          (pending.shop_domain && pending.shop_domain !== shop)) return redirect(SITE + "/business?shopify=expired");
+      const { data: existing, error: existingError } = await db.from("madsi_shopify_connections")
+        .select("owner_user_id").eq("shop_domain", shop).maybeSingle();
+      if (existingError || (existing && existing.owner_user_id !== pending.owner_user_id)) {
+        return redirect(SITE + "/business?shopify=store_already_linked");
+      }
+      const { data: claimed } = await db.from("madsi_shopify_oauth_states")
+        .delete().eq("state_hash", await sha256(state)).eq("owner_user_id", pending.owner_user_id)
+        .select("state_hash").maybeSingle();
       if (!claimed) return redirect(SITE + "/business?shopify=expired");
       const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
         method: "POST", headers: { "content-type": "application/json" },
@@ -144,6 +154,7 @@ Deno.serve(async (req: Request) => {
       const { error } = await db.from("madsi_shopify_connections").upsert({
         owner_user_id: pending.owner_user_id, shop_domain: shop, shop_name: shopData.shop.name,
         access_token: tokenPayload.access_token, granted_scopes: granted, api_version: API_VERSION,
+        refresh_token: null, access_token_expires_at: null, refresh_token_expires_at: null,
         status: "connected", last_verified_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }, { onConflict: "shop_domain" });
       if (error) return redirect(SITE + "/business?shopify=save_failed");
