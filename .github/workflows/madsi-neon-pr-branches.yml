@@ -57,6 +57,7 @@ jobs:
             exit 1
           fi
           psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261128000100_madsi_facebook.sql
+          psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261128000200_madsi_facebook_neon_auth_decoupling.sql
 
       - name: Verify isolated database schema and RLS
         env:
