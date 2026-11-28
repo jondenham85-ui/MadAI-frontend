@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.119.0";
+import { validateShopifyIdToken } from "./shopify-auth.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -102,23 +103,90 @@ Deno.serve(async (req: Request) => {
     if (req.method !== "GET" && req.method !== "POST") return json(req, { error: "Method not allowed" }, 405);
     const ownerId = await requireOwner(req);
     if (url.pathname.endsWith("/connect") && req.method === "POST") {
-      if (!SHOPIFY_KEY || !SHOPIFY_SECRET) return json(req, { error: "Shopify app credentials have not been configured in Supabase secrets yet.", code: "SHOPIFY_SETUP_REQUIRED" }, 503);
-      const body = await req.json().catch(() => ({}));
-      const shop = safeShop(typeof body.shop === "string" ? body.shop : DEFAULT_SHOP);
-      const state = randomHex();
-      const { error } = await db.from("madsi_shopify_oauth_states").insert({ state_hash: await sha256(state), owner_user_id: ownerId, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
-      if (error) return json(req, { error: "Could not start secure Shopify authorization." }, 503);
-      const authorize = new URL(`https://${shop}/admin/oauth/authorize`);
-      authorize.searchParams.set("client_id", SHOPIFY_KEY);
-      authorize.searchParams.set("scope", SCOPES.join(","));
-      authorize.searchParams.set("redirect_uri", CALLBACK);
-      authorize.searchParams.set("state", state);
-      return json(req, { authorization_url: authorize.toString(), shop });
+      if (!SHOPIFY_KEY || !SHOPIFY_SECRET) return json(req, { error: "Shopify app credentials are not configured in Supabase secrets.", code: "SHOPIFY_SETUP_REQUIRED" }, 503);
+      const idToken = req.headers.get("x-shopify-id-token") || "";
+      let session: { shop: string; subject: string };
+      try {
+        session = await validateShopifyIdToken(idToken, SHOPIFY_KEY, SHOPIFY_SECRET);
+      } catch {
+        return new Response(JSON.stringify({ error: "A valid Shopify Admin session is required.", code: "SHOPIFY_SESSION_INVALID" }), {
+          status: 401,
+          headers: { ...headers(req.headers.get("origin")), "x-shopify-retry-invalid-session-request": "1" },
+        });
+      }
+      const shop = safeShop(session.shop);
+      const { data: existing, error: existingError } = await db.from("madsi_shopify_connections")
+        .select("owner_user_id").eq("shop_domain", shop).maybeSingle();
+      if (existingError) return json(req, { error: "Could not verify the existing store owner." }, 503);
+      if (existing && existing.owner_user_id !== ownerId) {
+        return json(req, { error: "This Shopify store is already linked to a different MADSI owner. No account association was changed.", code: "SHOPIFY_STORE_OWNED" }, 409);
+      }
+      const exchange = await fetch(`https://${shop}/admin/oauth/access_token`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          client_id: SHOPIFY_KEY,
+          client_secret: SHOPIFY_SECRET,
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+          subject_token: idToken,
+          subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
+          requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+          expiring: "1",
+        }),
+        cache: "no-store",
+      });
+      const token = await exchange.json().catch(() => null);
+      if (!exchange.ok || typeof token?.access_token !== "string" ||
+          typeof token?.refresh_token !== "string" ||
+          !Number.isFinite(token?.expires_in) ||
+          !Number.isFinite(token?.refresh_token_expires_in)) {
+        return json(req, { error: "Shopify could not issue an expiring offline access token. Reopen MADSi in Shopify Admin and retry.", code: "SHOPIFY_TOKEN_EXCHANGE_FAILED" }, 502);
+      }
+      const shopData = await shopifyGraphql(shop, token.access_token, "query { shop { name myshopifyDomain } }");
+      if (shopData?.shop?.myshopifyDomain !== shop) {
+        return json(req, { error: "Shopify returned a different store identity. No connection was saved.", code: "SHOPIFY_STORE_MISMATCH" }, 403);
+      }
+      const granted = String(token.scope || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+      const now = Date.now();
+      const { error: saveError } = await db.from("madsi_shopify_connections").upsert({
+        owner_user_id: ownerId,
+        shop_domain: shop,
+        shop_name: shopData.shop.name,
+        access_token: token.access_token,
+        refresh_token: token.refresh_token,
+        access_token_expires_at: new Date(now + token.expires_in * 1000).toISOString(),
+        refresh_token_expires_at: new Date(now + token.refresh_token_expires_in * 1000).toISOString(),
+        granted_scopes: granted,
+        api_version: API_VERSION,
+        status: "connected",
+        last_verified_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "shop_domain" });
+      if (saveError) return json(req, { error: "Shopify authenticated, but MADSI could not safely save the connection." }, 503);
+      return json(req, {
+        connected: true,
+        shop_domain: shop,
+        shop_name: shopData.shop.name,
+        granted_scopes: granted,
+        access_token_expires_at: new Date(now + token.expires_in * 1000).toISOString(),
+      });
     }
     if (url.pathname.endsWith("/status") && req.method === "GET") {
-      const { data, error } = await db.from("madsi_shopify_connections").select("shop_domain,shop_name,granted_scopes,status,last_verified_at").eq("owner_user_id", ownerId).maybeSingle();
+      const { data, error } = await db.from("madsi_shopify_connections")
+        .select("shop_domain,shop_name,granted_scopes,status,last_verified_at,access_token_expires_at,refresh_token_expires_at,refresh_token")
+        .eq("owner_user_id", ownerId).maybeSingle();
       if (error) return json(req, { error: "Connection status unavailable." }, 503);
-      return json(req, { connected: data?.status === "connected", connection: data || null });
+      if (!data) return json(req, { connected: false, connection: null });
+      const accessExpired = !!data.access_token_expires_at && Date.parse(data.access_token_expires_at) <= Date.now();
+      const refreshExpired = !!data.refresh_token_expires_at && Date.parse(data.refresh_token_expires_at) <= Date.now();
+      const needsReauth = data.status !== "connected" || (accessExpired && (!data.refresh_token || refreshExpired));
+      const connection = {
+        shop_domain: data.shop_domain, shop_name: data.shop_name, granted_scopes: data.granted_scopes,
+        status: needsReauth ? "reauthorization_required" : data.status,
+        last_verified_at: data.last_verified_at,
+        access_token_expires_at: data.access_token_expires_at,
+      };
+      return json(req, { connected: !needsReauth, connection });
     }
     if (url.pathname.endsWith("/products") && req.method === "GET") {
       const { data: connection } = await db.from("madsi_shopify_connections").select("shop_domain,access_token").eq("owner_user_id", ownerId).eq("status", "connected").maybeSingle();
