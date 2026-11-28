@@ -49,26 +49,39 @@ export async function facebookStorage(
   const params = new URLSearchParams(rawQuery);
   const method = (init.method || "GET").toUpperCase();
   const body = init.body ? JSON.parse(String(init.body)) as JsonRecord : {};
+  // PostgREST control parameters are not SQL filters. Validate each explicitly,
+  // then translate only the supported filter subset into parameterized SQL.
+  const requestedColumns = params.get("select");
+  const limitRaw = params.get("limit");
+  const conflictTarget = params.get("on_conflict");
+  if (requestedColumns) selectedColumns(table, requestedColumns);
+  const limit = limitRaw === null ? 1 : Number(limitRaw);
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error("DATABASE_REQUEST_FAILED");
+  if (conflictTarget && !(table === "madsi_facebook_connections" && conflictTarget === "owner_user_id")) {
+    throw new Error("DATABASE_REQUEST_FAILED");
+  }
   const where: string[] = [];
   const values: unknown[] = [];
   for (const [key, raw] of params.entries()) {
+    if (["select", "limit", "on_conflict"].includes(key)) continue;
     if (!filters.has(key)) throw new Error("DATABASE_REQUEST_FAILED");
     const operator = raw.startsWith("eq.") ? "=" : raw.startsWith("gt.") ? ">" : raw === "is.null" ? "IS NULL" : "";
     if (!operator) throw new Error("DATABASE_REQUEST_FAILED");
     if (operator === "IS NULL") where.push('"' + key + '" IS NULL');
     else {
-      values.push(raw.slice(operator === "=" ? 3 : 3));
+      values.push(raw.slice(3));
       where.push('"' + key + '" ' + operator + " $" + values.length);
     }
   }
   const clause = where.length ? " WHERE " + where.join(" AND ") : "";
+  const limitClause = " LIMIT " + limit;
 
   if (table === "madsi_facebook_oauth_states" && method === "POST") {
     await run("INSERT INTO public.madsi_facebook_oauth_states (state_hash, owner_user_id, expires_at) VALUES ($1, $2, $3)", [body.state_hash, body.owner_user_id, body.expires_at]);
     return null;
   }
   if (table === "madsi_facebook_oauth_states" && method === "GET") {
-    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + " LIMIT 1", values);
+    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + limitClause, values);
   }
   if (table === "madsi_facebook_oauth_states" && method === "DELETE") {
     return run("DELETE FROM public." + table + clause + " RETURNING owner_user_id, expires_at", values);
@@ -83,14 +96,14 @@ export async function facebookStorage(
     return null;
   }
   if (table === "madsi_facebook_connections" && method === "GET") {
-    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + " LIMIT 1", values);
+    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + limitClause, values);
   }
 
   if (table === "madsi_facebook_publish_approvals" && method === "POST") {
     return run("INSERT INTO public.madsi_facebook_publish_approvals (owner_user_id, message, status, expires_at) VALUES ($1, $2, $3, $4) RETURNING id, expires_at", [body.owner_user_id, body.message, body.status, body.expires_at]);
   }
   if (table === "madsi_facebook_publish_approvals" && method === "GET") {
-    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + " LIMIT 1", values);
+    return run("SELECT " + selectedColumns(table, params.get("select")) + " FROM public." + table + clause + limitClause, values);
   }
   if (table === "madsi_facebook_publish_approvals" && method === "PATCH") {
     const updates = body as JsonRecord;
