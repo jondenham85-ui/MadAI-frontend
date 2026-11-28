@@ -46,7 +46,7 @@ jobs:
             fi
           done
           if [[ "$NEXT_PUBLIC_SUPABASE_URL" != https://*.supabase.co ]]; then
-            echo "::error::STAGING_SUPABASE_URL must point to a Supabase project URL."
+            echo "::error::MADSI_AUTH_SUPABASE_URL must point to the connected MADSI Supabase Auth project URL."
             exit 1
           fi
           if [ -z "${NEON_STAGING_DATABASE_URL:-}" ]; then
