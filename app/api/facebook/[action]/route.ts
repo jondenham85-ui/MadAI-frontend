@@ -279,7 +279,37 @@ async function webhookPost(request: Request) {
   const expected = 'sha256=' + Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('');
   let mismatch = expected.length ^ signature.length;
   for (let i = 0; i < Math.min(expected.length, signature.length); i++) mismatch |= expected.charCodeAt(i) ^ signature.toLowerCase().charCodeAt(i);
-  return mismatch === 0 ? json({ received: true }) : json({ error: 'Invalid webhook signature.' }, 401);
+  if (mismatch !== 0) return json({ error: 'Invalid webhook signature.' }, 401);
+  let payload: any;
+  try { payload = JSON.parse(new TextDecoder().decode(raw)); } catch { return json({ error: 'Invalid webhook JSON.' }, 400); }
+  if (payload?.object !== 'page' || !Array.isArray(payload.entry) || payload.entry.length > 100) return json({ error: 'Unsupported webhook payload.' }, 400);
+  const rows: Record<string, unknown>[] = [];
+  for (const entry of payload.entry) {
+    if (typeof entry?.id !== 'string' || !Array.isArray(entry.changes)) continue;
+    for (const change of entry.changes.slice(0, 100)) {
+      if (typeof change?.field !== 'string' || change.field.length > 100) continue;
+      const source = change.value && typeof change.value === 'object' ? change.value : {};
+      // Persist identifiers and event descriptors only; never store post/comment text or access tokens.
+      const metadata: Record<string, string | number> = {};
+      for (const key of ['item', 'verb', 'post_id', 'comment_id', 'parent_id', 'created_time']) {
+        const item = source[key];
+        if ((typeof item === 'string' && item.length <= 256) || (typeof item === 'number' && Number.isFinite(item))) metadata[key] = item;
+      }
+      const eventTime = Number(entry.time);
+      const identity = JSON.stringify({ page: entry.id, time: Number.isFinite(eventTime) ? eventTime : 0, field: change.field, metadata });
+      rows.push({ event_hash: await hash(identity), page_id: entry.id, field: change.field, event_time: Number.isFinite(eventTime) ? eventTime : null, event_metadata: metadata });
+      if (rows.length >= 100) break;
+    }
+    if (rows.length >= 100) break;
+  }
+  if (!rows.length) return json({ received: true, queued: 0, duplicates: 0 });
+  try {
+    const inserted = await db('madsi_facebook_webhook_events', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rows) });
+    const queued = Array.isArray(inserted) ? inserted.length : rows.length;
+    return json({ received: true, queued, duplicates: Math.max(0, rows.length - queued) });
+  } catch {
+    return json({ error: 'Webhook event could not be persisted; Meta should retry delivery.' }, 503);
+  }
 }
 function failure(error: unknown) {
   const code = error instanceof Error ? error.message : '';
