@@ -45,6 +45,7 @@ export async function facebookStorage(
   if (backend === "supabase") return supabaseFallback(path, init);
   if (backend !== "neon" || !value("MADSI_DATABASE_URL")) throw new Error("DATABASE_NOT_CONFIGURED");
   const [table, rawQuery = ""] = path.split("?");
+  const method = (init.method || "GET").toUpperCase();
   if (!allowedColumns[table]) {
     // Supabase is used only for the authenticated owner-profile read. Never
     // silently fall back to production for an unknown Facebook storage table.
@@ -52,7 +53,6 @@ export async function facebookStorage(
     throw new Error("DATABASE_REQUEST_FAILED");
   }
   const params = new URLSearchParams(rawQuery);
-  const method = (init.method || "GET").toUpperCase();
   const body = init.body ? JSON.parse(String(init.body)) as JsonRecord : {};
   // PostgREST control parameters are not SQL filters. Validate each explicitly,
   // then translate only the supported filter subset into parameterized SQL.
