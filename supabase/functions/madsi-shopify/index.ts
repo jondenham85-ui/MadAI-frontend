@@ -17,7 +17,7 @@ const headers = (origin: string | null) => ({
   "content-type": "application/json",
   "cache-control": "no-store",
   "access-control-allow-origin": origin && [SITE, "https://madmadisonai.com"].includes(origin) ? origin : SITE,
-  "access-control-allow-headers": "authorization, apikey, content-type, x-client-info",
+  "access-control-allow-headers": "authorization, apikey, content-type, x-client-info, x-shopify-id-token",
   "access-control-allow-methods": "GET, POST, OPTIONS",
   "vary": "Origin",
 });
