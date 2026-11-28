@@ -35,7 +35,7 @@ Set these variables on the Worker serving the MADSI Next.js app. Never put secre
 
 Generate the encryption key locally with `openssl rand -base64 32`. Keep the output private and store it only as a Worker secret. Never send it in chat or commit it.
 
-The Worker config enables Node.js compatibility and `nodejs_compat_populate_process_env`, because the server route reads Worker variables through `process.env`. Cloudflare documents that this flag makes Worker variables and secrets available through `process.env`. Configure the values as Worker variables/secrets in the Cloudflare dashboard or with the supported Cloudflare CLI; do not place secret values in `cloudflare.config.ts`.
+The Worker config enables Node.js compatibility and `nodejs_compat_populate_process_env`, because the server route reads Worker variables through `process.env`. Cloudflare documents that this flag makes Worker variables and secrets available through `process.env`. Configure the values as Worker variables/secrets in the Cloudflare dashboard or with the supported Cloudflare CLI; do not place secret values in `cloudflare.config.ts`. Worker observability is enabled with structured invocation logs and sampled traces; incoming request query strings are redacted to avoid retaining OAuth callback codes and state values in telemetry.
 
 ## Meta app configuration
 
