@@ -28,3 +28,24 @@ BEGIN
   END LOOP;
 END
 $migration$;
+
+-- The Neon connection is server-only. Grant its dedicated staging role access;
+-- RLS remains enabled and permits only that private backend database role.
+DO $access$
+DECLARE
+  table_name text;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'madsi_staging') THEN
+    GRANT USAGE ON SCHEMA public TO madsi_staging;
+    FOREACH table_name IN ARRAY ARRAY[
+      'madsi_facebook_oauth_states',
+      'madsi_facebook_connections',
+      'madsi_facebook_publish_approvals'
+    ] LOOP
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.%I TO madsi_staging', table_name);
+      EXECUTE format('DROP POLICY IF EXISTS madsi_staging_backend_access ON public.%I', table_name);
+      EXECUTE format('CREATE POLICY madsi_staging_backend_access ON public.%I FOR ALL TO madsi_staging USING (true) WITH CHECK (true)', table_name);
+    END LOOP;
+  END IF;
+END
+$access$;
