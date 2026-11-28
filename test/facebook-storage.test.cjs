@@ -18,3 +18,9 @@ test('Neon Facebook storage bounds SQL limits and keeps filters parameterized', 
   assert.ok(source.includes('values.push(raw.slice(3))'));
   assert.ok(source.includes('const limitClause = " LIMIT " + limit'));
 });
+
+test('Neon mode only falls back to Supabase for the owner profile read', () => {
+  assert.ok(source.includes('if (table === "profiles" && method === "GET") return supabaseFallback(path, init)'));
+  assert.ok(source.includes('throw new Error("DATABASE_REQUEST_FAILED")'));
+  assert.ok(!source.includes('if (!allowedColumns[table]) return supabaseFallback(path, init)'));
+});
