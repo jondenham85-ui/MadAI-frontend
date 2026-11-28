@@ -42,8 +42,8 @@ jobs:
             echo "::error::NEON_STAGING_DATABASE_URL must be a PostgreSQL connection URL."
             exit 1
           fi
-          if [[ "$NEON_DATABASE_URL" != *"dry-haze-09159013"* || "$NEON_DATABASE_URL" != *"madsi_staging"* ]]; then
-            echo "::error::Refusing to run: connection URL must target Neon project dry-haze-09159013 and database madsi_staging."
+          if [[ "$NEON_DATABASE_URL" != *"ep-morning-lake-be1pzja7-pooler.c-9.us-east-2.aws.neon.tech"* || "$NEON_DATABASE_URL" != *"/madsi_staging"* ]]; then
+            echo "::error::Refusing to run: connection URL must target the MADSI-Staging Neon endpoint and database madsi_staging."
             exit 1
           fi
 
