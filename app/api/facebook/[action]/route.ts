@@ -30,9 +30,11 @@ async function proxy(request: Request, action: string) {
   const authorization = request.headers.get("authorization");
   const cookie = request.headers.get("cookie");
   const contentType = request.headers.get("content-type");
+  const webhookSignature = request.headers.get("x-hub-signature-256");
   if (authorization) headers.set("authorization", authorization);
   if (cookie) headers.set("cookie", cookie);
   if (contentType) headers.set("content-type", contentType);
+  if (action === "webhooks" && webhookSignature) headers.set("x-hub-signature-256", webhookSignature);
 
   const init: RequestInit = {
     method: request.method,
