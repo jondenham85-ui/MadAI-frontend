@@ -58,3 +58,9 @@ test('Cloudflare scheduled processor is enabled only for production Worker build
  assert.ok(entry.includes('/api/facebook/process'));
  assert.ok(entry.includes('MADSI_FACEBOOK_PROCESSOR_SECRET'));
 });
+
+test('Cloudflare custom Worker entrypoint is not overwritten by the default Vinext entrypoint', () => {
+ const config=fs.readFileSync(path.join(__dirname, '../cloudflare.config.ts'),'utf8');
+ const entrypoints=[...config.matchAll(/entrypoint:\s*["']([^"']+)["']/g)].map(match=>match[1]);
+ assert.deepEqual(entrypoints,['./worker/index.ts']);
+});

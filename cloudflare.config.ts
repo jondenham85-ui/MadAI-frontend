@@ -5,7 +5,6 @@ export default defineConfig(({ isPreview }) => ({
     entrypoint: "./worker/index.ts",
     triggers: isPreview ? [] : [triggers.scheduled({ schedule: "*/5 * * * *" })],
     name: "mad-ai-frontend",
-    entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-28",
     compatibilityFlags: ["nodejs_compat", "nodejs_compat_populate_process_env"],
     observability: {
