@@ -16,6 +16,29 @@ Apply `supabase/migrations/20261128000100_madsi_facebook.sql` to the existing MA
 
 Do not apply this migration to production until it has been reviewed and staging-tested.
 
+## Cost-conscious staging and validation
+
+The default pre-deployment path is to use the disposable PostgreSQL service in
+`.github/workflows/madsi-cloudflare-validation.yml`. It creates a fresh
+PostgreSQL instance for each GitHub Actions run, applies the Facebook migration,
+and verifies that two separate owners can connect the same Page ID. The
+database is discarded with the job. This path does not create a paid Supabase
+project and does not touch production.
+
+The existing Render database is a legacy database, not an approved staging
+target. Its current free instance is temporary, and its network allowlist
+currently blocks the hosted read-only inspection connection. Do not open its
+network access or apply this migration there merely to avoid staging costs.
+Only consider it for read-only legacy-data inspection if a secure, authorized
+connection path becomes available.
+
+Disposable PostgreSQL validates PostgreSQL DDL and the tested ownership
+constraint. It does not emulate Supabase Auth, Storage, service-role behavior,
+or live Meta OAuth. Those integration checks remain blocked until a separately
+isolated Supabase staging environment and staging Meta/Cloudflare settings are
+available. Do not use the production Supabase project as a substitute for
+staging, and do not apply the migration to production as part of CI.
+
 ## Cloudflare Worker environment
 
 Set these variables on the Worker serving the MADSI Next.js app. Never put secrets in `NEXT_PUBLIC_*` variables, source code, GitHub, or browser code.
