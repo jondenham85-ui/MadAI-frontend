@@ -1,6 +1,3 @@
-// @ts-ignore Cloudflare resolves this native module inside workerd.
-import { env } from "cloudflare:workers";
-
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
@@ -34,9 +31,15 @@ function workerUrl() {
 
 type InferenceService = { fetch(request: Request): Promise<Response> };
 
-function inferenceRequest(path: string, init: RequestInit = {}) {
-  const service = (env as unknown as { MADSI_INFERENCE?: InferenceService }).MADSI_INFERENCE;
-  if (service) return service.fetch(new Request(`https://madsi-inference${path}`, init));
+async function inferenceRequest(path: string, init: RequestInit = {}) {
+  try {
+    // @ts-ignore Cloudflare resolves this native module inside workerd; webpack leaves it external.
+    const cloudflare = await import(/* webpackIgnore: true */ "cloudflare:workers");
+    const service = (cloudflare.env as unknown as { MADSI_INFERENCE?: InferenceService }).MADSI_INFERENCE;
+    if (service) return await service.fetch(new Request(`https://madsi-inference${path}`, init));
+  } catch {
+    // Node/Vercel runtimes do not expose Cloudflare bindings; use the URL fallback.
+  }
   return fetch(workerUrl() + path, init);
 }
 
