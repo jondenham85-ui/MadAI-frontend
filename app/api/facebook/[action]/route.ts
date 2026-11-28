@@ -7,7 +7,7 @@ const json = (body: unknown, status = 500) =>
   Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
 
 function configuration() {
-  const env = typeof process !== "undefined" ? process.env : {};
+  const env = (typeof process !== "undefined" ? process.env : {}) as Record<string, string | undefined>;
   const url = (env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL || "").replace(/\/+$/, "");
   const key = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || "";
