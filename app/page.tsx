@@ -10,11 +10,12 @@ const features=[
  {n:'04',icon:'◎',title:'Keep your momentum',tag:'CONTINUITY',copy:'Return to conversations, projects and useful context without starting from zero.'}
 ];
 const plans=[
- {name:'Chat',price:'$9.99',detail:'200 chats per day',id:'chat'},
- {name:'Tasks',price:'$19',detail:'25 tasks per day + recurring workflows',id:'tasks'},
- {name:'Premium',price:'$49',detail:'Unlimited chat + 100 tasks per day',id:'premium'},
- {name:'Business Team',price:'$99',detail:'500 tasks per user per day',id:'business_team'},
- {name:'Business Scale',price:'$299',detail:'2,000 tasks per user per day',id:'business_scale'}
+ {name:'Free',price:'$0',detail:'20 chats and 3 tasks per day',id:'free'},
+ {name:'Chat',price:'$9.99',detail:'200 chats and 3 tasks per day',id:'chat'},
+ {name:'Tasks',price:'$19',detail:'200 chats, 25 tasks per day, and recurring AI workflows',id:'tasks'},
+ {name:'Premium',price:'$49',detail:'Unlimited daily chat, 100 tasks/day, and website, code and game source generation',id:'premium'},
+ {name:'Business Team',price:'$99',detail:'Unlimited daily chat, 500 tasks per user per day, and recurring AI workflows',id:'business_team'},
+ {name:'Business Scale',price:'$299',detail:'Unlimited daily chat, 2,000 tasks per user per day, and recurring AI workflows',id:'business_scale'}
 ];
 export default function HomePage(){
  const {user}=useUser();const [health,setHealth]=useState<Health|null>(null);const [checked,setChecked]=useState(false);
@@ -36,7 +37,7 @@ export default function HomePage(){
    <div className="nx-feature-grid">{features.map(f=><article key={f.n}><div className="nx-feature-meta"><span>{f.n} / MODULE</span><span>{f.tag}</span></div><div className="nx-feature-icon">{f.icon}</div><h3>{f.title}</h3><p>{f.copy}</p><a href={startHref}>Explore in MADSI ↗</a></article>)}</div>
   </section>
   <section className="nx-capabilities"><div className="nx-section-title"><div><small>SIMPLE, SCALABLE PLANS</small><h2>Start free.<br/><span>Scale when you're ready.</span></h2></div><p>Choose the capacity that fits your work. Monthly and annual billing options are available.</p></div>
-   <div className="nx-feature-grid">{plans.map((plan,index)=><article key={plan.id}><div className="nx-feature-meta"><span>{index===2?'FULL CREATION':'MADSI PLAN'}</span><span>{index===4?'HIGH VOLUME':'MONTHLY'}</span></div><h3>{plan.name}</h3><p className="nx-plan-price">{plan.price}<span>/ month</span></p><p>{plan.detail}</p><a href="/pricing">View plan & checkout ↗</a></article>)}</div>
+   <div className="nx-feature-grid">{plans.map((plan,index)=><article key={plan.id}><div className="nx-feature-meta"><span>{plan.id==='premium'?'FULL CREATION':plan.id==='free'?'START FREE':'MADSI PLAN'}</span><span>{plan.id==='business_scale'?'HIGH VOLUME':plan.id==='free'?'NO COST':'MONTHLY'}</span></div><h3>{plan.name}</h3><p className="nx-plan-price">{plan.price}<span>/ month</span></p><p>{plan.detail}</p><a href="/pricing">View plan & checkout ↗</a></article>)}</div>
    <div className="nx-home-actions"><a className="nx-primary-cta" href="/pricing">Compare all plans <b>↗</b></a><a className="nx-secondary-cta" href={startHref}> {user?'Go to workspace':'Start with Free'} </a></div>
   </section>
   <section className="nx-home-bottom"><div><small>YOUR NEXT CHAPTER STARTS HERE</small><h2>Bring the ambition.<br/><span>Build the next step.</span></h2></div><a href={startHref}>{user?'Enter MADSI':'Get started free'} ↗</a></section>
