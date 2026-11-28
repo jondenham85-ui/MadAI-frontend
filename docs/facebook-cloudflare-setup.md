@@ -5,16 +5,21 @@
 - Owner-authenticated Meta OAuth start and callback.
 - Short-lived user token exchange for a long-lived user token.
 - Page discovery and encrypted Page-token storage.
-- AES-GCM encryption of access tokens before storage in Supabase.
+- AES-GCM encryption of access tokens before storage in the selected server-side database (Neon for staging; Supabase REST remains available for production).
 - Owner-only status, recent Page posts, and Page insights endpoints.
 - A persisted, one-time publishing approval that must be explicitly created and consumed by an owner.
 - Meta webhook verification and HMAC-SHA256 signature validation. Verified events are acknowledged only; they do not trigger business actions.
 
-## Database migration
+## Database migration and runtime storage
 
-Apply `supabase/migrations/20261128000100_madsi_facebook.sql` to the existing MADSI Supabase project before enabling the integration. The tables have RLS enabled and no client-role grants. Only the server-side Supabase service-role credential can access them.
+The feature branch now supports two explicit storage backends for the Facebook integration:
 
-Do not apply this migration to production until it has been reviewed and staging-tested.
+- `MADSI_FACEBOOK_STORAGE_BACKEND=neon`: Facebook OAuth states, encrypted Page tokens, and one-time publishing approvals are stored in the isolated MADSI Neon staging database through `MADSI_DATABASE_URL`.
+- `MADSI_FACEBOOK_STORAGE_BACKEND=supabase` (default): retains the existing Supabase REST storage path for the production configuration.
+
+Supabase remains the identity provider. The API validates the bearer token with Supabase Auth and reads the user's OWNER/ADMIN profile there. When the backend is `neon`, only Facebook integration records are routed to Neon; profile lookups remain on Supabase. The Neon connection string is server-only and must never be exposed to the browser.
+
+Apply `20261128000100_madsi_facebook.sql` and then `20261128000200_madsi_facebook_neon_auth_decoupling.sql` to Neon staging. The second migration removes cross-database foreign-key dependencies on `auth.users` and grants the dedicated `madsi_staging` database role access through RLS. Supabase production is not migrated by the Neon workflows.
 
 ## Cost-conscious staging and validation
 
@@ -142,15 +147,14 @@ Before any deployment:
 
 The repository now includes a guarded manual workflow at `.github/workflows/madsi-cloudflare-preview.yml`. Run it from the `feat/madsi-facebook-cloudflare` branch only. It runs typecheck and regression tests, then uses Vinext's supported `npx @vinext/cloudflare previews deploy --preview-name madsi-facebook-cloudflare` command. It creates an isolated Cloudflare Preview; it does not deploy the production Worker, change DNS, or migrate production Supabase.
 
-Before running it, configure these GitHub Actions repository secrets (use staging values only):
-- `CLOUDFLARE_API_TOKEN` — token with the Cloudflare Workers deployment permissions required by Vinext.
-- `CLOUDFLARE_ACCOUNT_ID` — the target Cloudflare account ID.
-- `STAGING_SUPABASE_URL` — URL of a separate staging Supabase project.
-- `STAGING_SUPABASE_PUBLISHABLE_KEY` — publishable/anon key belonging to that staging project.
+Before running it, configure these GitHub Actions repository secrets:
+- `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` — Cloudflare preview deployment access.
+- `MADSI_AUTH_SUPABASE_URL` and `MADSI_AUTH_SUPABASE_PUBLISHABLE_KEY` — the existing MADSI Supabase Auth project and its public key. This is used only for authentication and read-only owner-profile lookup in the Facebook preview; do not run signup tests or unrelated production-data workflows from the preview.
+- `NEON_STAGING_DATABASE_URL` — the dedicated Neon staging connection string for `madsi_staging`.
 
-The workflow intentionally stops before deployment if any are missing, or if the Supabase URL is not a Supabase project URL. Do not point it at the production Supabase project.
+The workflow requires the Neon URL to match the known MADSI staging endpoint/database and sets `MADSI_FACEBOOK_STORAGE_BACKEND=neon`. It will not silently fall back to Supabase for Facebook records.
 
-After the Preview URL is created, configure the Preview's server-side variables/secrets in Cloudflare Preview settings: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_FACEBOOK_PAGE_ID`, `META_WEBHOOK_VERIFY_TOKEN`, `MADSI_FACEBOOK_TOKEN_ENCRYPTION_KEY`, `META_GRAPH_API_VERSION`, and `MADSI_APP_URL`. Use a staging Meta app and staging Page/test assets. Add the Preview's exact callback URL to the staging Meta app and configure its webhook URL there. Keep service-role and Meta credentials in Cloudflare's secret store; never put them in GitHub build secrets, source code, or chat.
+After the Preview URL is created, configure the Preview's server-side variables/secrets in Cloudflare Preview settings: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (read-only profile lookup for the Facebook route), `MADSI_FACEBOOK_STORAGE_BACKEND=neon`, `MADSI_DATABASE_URL` (the Neon staging connection string), `META_APP_ID`, `META_APP_SECRET`, `META_FACEBOOK_PAGE_ID`, `META_WEBHOOK_VERIFY_TOKEN`, `MADSI_FACEBOOK_TOKEN_ENCRYPTION_KEY`, `META_GRAPH_API_VERSION`, and `MADSI_APP_URL`. Use a staging Meta app and staging Page/test assets. Add the Preview's exact callback URL to the staging Meta app and configure its webhook URL there. Keep service-role and Meta credentials in Cloudflare's secret store; never put them in GitHub build secrets, source code, or chat.
 
 Cloudflare documents Previews as separate environments with their own settings and URL: https://developers.cloudflare.com/workers/previews/. For a normal deployment, use `npx cf auth login`, followed by `npx cf deploy --dry-run` and then `npx cf deploy`. The last command uploads and deploys the Worker and must not be run without explicit production approval.
 
@@ -178,9 +182,10 @@ branches under the staging project; they do not change production Supabase
 or the persistent `main` staging branch.
 
 After creating or reusing the branch, the workflow uses the action's
-short-lived branch connection output to apply
-`supabase/migrations/20261128000100_madsi_facebook.sql` and verify that all
-three Facebook tables exist with RLS enabled. The connection string is passed
+short-lived branch connection output to apply both
+`20261128000100_madsi_facebook.sql` and
+`20261128000200_madsi_facebook_neon_auth_decoupling.sql`, then verifies
+that all three Facebook tables exist with RLS enabled. The connection string is passed
 only between workflow steps through the runner environment; it is not logged,
 stored as a repository secret, or injected into the application preview.
 
