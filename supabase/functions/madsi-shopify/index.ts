@@ -120,45 +120,7 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   try {
     if (url.pathname.endsWith("/callback") && req.method === "GET") {
-      if (!SHOPIFY_KEY || !SHOPIFY_SECRET) return redirect(SITE + "/business?shopify=setup_required");
-      const params = url.searchParams;
-      const shop = safeShop(params.get("shop") || "");
-      const state = params.get("state") || "";
-      const code = params.get("code") || "";
-      if (!await validHmac(params)) return redirect(SITE + "/business?shopify=invalid_hmac");
-      if (!/^[a-f0-9]{64}$/i.test(state) || !/^[a-f0-9]+$/i.test(code)) return redirect(SITE + "/business?shopify=invalid_state");
-      const { data: pending } = await db.from("madsi_shopify_oauth_states")
-        .select("state_hash,owner_user_id,expires_at,shop_domain")
-        .eq("state_hash", await sha256(state)).maybeSingle();
-      if (!pending || Date.parse(pending.expires_at) < Date.now() ||
-          (pending.shop_domain && pending.shop_domain !== shop)) return redirect(SITE + "/business?shopify=expired");
-      const { data: existing, error: existingError } = await db.from("madsi_shopify_connections")
-        .select("owner_user_id").eq("shop_domain", shop).maybeSingle();
-      if (existingError || (existing && existing.owner_user_id !== pending.owner_user_id)) {
-        return redirect(SITE + "/business?shopify=store_already_linked");
-      }
-      const { data: claimed } = await db.from("madsi_shopify_oauth_states")
-        .delete().eq("state_hash", await sha256(state)).eq("owner_user_id", pending.owner_user_id)
-        .select("state_hash").maybeSingle();
-      if (!claimed) return redirect(SITE + "/business?shopify=expired");
-      const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ client_id: SHOPIFY_KEY, client_secret: SHOPIFY_SECRET, code }), cache: "no-store",
-      });
-      const tokenPayload = await tokenResponse.json().catch(() => null);
-      if (!tokenResponse.ok || typeof tokenPayload?.access_token !== "string") return redirect(SITE + "/business?shopify=exchange_failed");
-      const granted = String(tokenPayload.scope || "").split(",").map((s: string) => s.trim()).filter(Boolean);
-      if (SCOPES.some(scope => !granted.includes(scope))) return redirect(SITE + "/business?shopify=missing_scopes");
-      const shopData = await shopifyGraphql(shop, tokenPayload.access_token, `query { shop { name myshopifyDomain } }`);
-      if (shopData?.shop?.myshopifyDomain !== shop) return redirect(SITE + "/business?shopify=shop_mismatch");
-      const { error } = await db.from("madsi_shopify_connections").upsert({
-        owner_user_id: pending.owner_user_id, shop_domain: shop, shop_name: shopData.shop.name,
-        access_token: tokenPayload.access_token, granted_scopes: granted, api_version: API_VERSION,
-        refresh_token: null, access_token_expires_at: null, refresh_token_expires_at: null,
-        status: "connected", last_verified_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }, { onConflict: "shop_domain" });
-      if (error) return redirect(SITE + "/business?shopify=save_failed");
-      return redirect(SITE + "/business?shopify=connected");
+      return redirect(SITE + "/business?shopify=embedded_auth_required");
     }
     if (req.method !== "GET" && req.method !== "POST") return json(req, { error: "Method not allowed" }, 405);
     const ownerId = await requireOwner(req);
