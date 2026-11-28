@@ -157,11 +157,11 @@ async function callbackGet(request: Request) {
     const pages = (Array.isArray(pageResult.data) ? pageResult.data : []) as FacebookPage[];
     const targetId = value('META_FACEBOOK_PAGE_ID');
     const eligible = pages.filter(page => page.id && page.access_token && Array.isArray(page.tasks) &&
-      (page.tasks.includes('CREATE_CONTENT') || page.tasks.includes('MANAGE')));
+      (page.tasks.includes('CREATE_CONTENT') || page.tasks.includes('MANAGE')) && page.tasks.includes('ANALYZE'));
     const selected = targetId ? eligible.find(page => page.id === targetId) : eligible.length === 1 ? eligible[0] : null;
     if (!selected) return redirect(eligible.length > 1 ? 'page_selection_required' : 'target_page_not_available');
 
-    const expiry = new Date(Date.now() + Math.max(0, Number(longToken.expires_in || 0)) * 1000).toISOString();
+    const expiry = Number(longToken.expires_in) > 0 ? new Date(Date.now() + Number(longToken.expires_in) * 1000).toISOString() : null;
     await db('madsi_facebook_connections?on_conflict=owner_user_id', {
       method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify({
@@ -199,7 +199,7 @@ async function getPosts(ownerId: string) {
 async function getInsights(ownerId: string) {
   const saved = await getConnection(ownerId);
   const data = await graph('/' + encodeURIComponent(saved.page_id) + '/insights', {
-    metric: 'page_impressions,page_engaged_users,page_post_engagements', period: 'day', date_preset: 'last_7d', access_token: saved.token,
+    metric: 'page_impressions,page_post_engagements,page_follows', period: 'day', date_preset: 'last_7d', access_token: saved.token,
   });
   return json({ insights: Array.isArray(data.data) ? data.data : [] });
 }
@@ -228,7 +228,7 @@ async function publish(request: Request, ownerId: string) {
   const approval = Array.isArray(rows) ? rows[0] : null;
   if (!approval) return json({ error: 'That publishing approval is expired or already used. Review the post and approve it again.' }, 409);
   const consumed = await db('madsi_facebook_publish_approvals?id=eq.' + encodeURIComponent(id) +
-    '&owner_user_id=eq.' + encodeURIComponent(ownerId) + '&status=eq.approved&consumed_at=is.null', {
+    '&owner_user_id=eq.' + encodeURIComponent(ownerId) + '&status=eq.approved&expires_at=gt.' + encodeURIComponent(new Date().toISOString()) + '&consumed_at=is.null', {
       method: 'PATCH', headers: { Prefer: 'return=representation' },
       body: JSON.stringify({ status: 'consumed', consumed_at: new Date().toISOString() }),
     });
