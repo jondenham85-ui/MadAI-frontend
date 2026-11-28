@@ -43,7 +43,7 @@ export async function facebookStorage(
 ): Promise<any> {
   if (!value("MADSI_DATABASE_URL")) return supabaseFallback(path, init);
   const [table, rawQuery = ""] = path.split("?");
-  if (!allowedColumns[table]) throw new Error("DATABASE_REQUEST_FAILED");
+  if (!allowedColumns[table]) return supabaseFallback(path, init);
   const params = new URLSearchParams(rawQuery);
   const method = (init.method || "GET").toUpperCase();
   const body = init.body ? JSON.parse(String(init.body)) as JsonRecord : {};
