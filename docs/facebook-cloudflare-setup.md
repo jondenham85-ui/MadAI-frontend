@@ -25,7 +25,7 @@ and verifies that two separate owners can connect the same Page ID. The
 database is discarded with the job. This path does not create a paid Supabase
 project and does not touch production.
 
-The existing Render database is a legacy database, not an approved staging
+The existing legacy PostgreSQL instance is a data source, not an approved staging
 target. Its current free instance is temporary, and its network allowlist
 currently blocks the hosted read-only inspection connection. Do not open its
 network access or apply this migration there merely to avoid staging costs.
