@@ -18,12 +18,12 @@ Do not apply this migration to production until it has been reviewed and staging
 
 ## Cost-conscious staging and validation
 
-The default pre-deployment path is to use the disposable PostgreSQL service in
-`.github/workflows/madsi-cloudflare-validation.yml`. It creates a fresh
-PostgreSQL instance for each GitHub Actions run, applies the Facebook migration,
-and verifies that two separate owners can connect the same Page ID. The
-database is discarded with the job. This path does not create a paid Supabase
-project and does not touch production.
+MADSI now has a persistent, isolated Neon staging database. Use
+`.github/workflows/madsi-neon-staging.yml` to apply and verify the Facebook
+migration against that Neon database. The ordinary Cloudflare validation
+workflow still uses disposable PostgreSQL for fast, credential-free CI checks;
+it does not replace the persistent Neon staging environment. Neither workflow
+touches production.
 
 The existing legacy PostgreSQL instance is a data source, not an approved staging
 target. Its current free instance is temporary, and its network allowlist
@@ -32,11 +32,14 @@ network access or apply this migration there merely to avoid staging costs.
 Only consider it for read-only legacy-data inspection if a secure, authorized
 connection path becomes available.
 
-Disposable PostgreSQL validates PostgreSQL DDL and the tested ownership
-constraint. It does not emulate Supabase Auth, Storage, service-role behavior,
-or live Meta OAuth. Those integration checks remain blocked until a separately
-isolated Supabase staging environment and staging Meta/Cloudflare settings are
-available. Do not use the production Supabase project as a substitute for
+Neon is the persistent staging database for PostgreSQL schema and migration
+work. It does not emulate Supabase Auth, Supabase Storage, Supabase JWT
+validation, or the Supabase service-role REST API. The current Facebook API
+route still uses Supabase Auth and Supabase REST for identity/profile lookups;
+therefore Neon is not a drop-in replacement for the production Supabase
+project. Full end-to-end Facebook OAuth testing still requires an isolated
+staging Supabase Auth/API environment plus staging Meta and Cloudflare
+settings. Do not use the production Supabase project as a substitute for
 staging, and do not apply the migration to production as part of CI.
 
 ## Neon staging database (provisioned 2026-11-28)
@@ -52,6 +55,16 @@ A separate free-tier Neon project is now provisioned for MADSI staging:
 - Compute: 0.25 CU minimum/maximum; free organization plan
 
 The Facebook integration migration was applied to this isolated Neon database after adding a minimal compatibility `auth.users` table and the Supabase role names required by the SQL grants. Validation confirmed all three Facebook tables exist with row-level security enabled, the same Facebook Page ID can be represented by two distinct owner records, and the migration's service-role grants are present. Temporary test rows were removed after validation.
+
+The repository also includes a manual GitHub Actions workflow at
+`.github/workflows/madsi-neon-staging.yml`. It refuses to run unless the
+connection URL targets this exact Neon project and the `madsi_staging`
+database. Configure the repository Actions secret
+`NEON_STAGING_DATABASE_URL` with the Neon connection string for this staging
+database (use the pooled connection string if appropriate). The workflow
+applies the idempotent Facebook migration and verifies all three tables and
+their RLS settings; its `verify_only` option checks the schema without
+reapplying the migration. Never use a production connection string.
 
 This Neon database is PostgreSQL staging only. It does not provide Supabase Auth, Supabase Storage, Supabase JWT validation, or the Supabase service-role API. Do not point the running application at Neon as a replacement for the production Supabase project. Keep production Supabase unchanged; use Neon for isolated SQL/migration regression and schema development. Full Facebook OAuth testing still needs a staging Supabase Auth/service-role environment and a staging Meta app.
 
@@ -114,7 +127,7 @@ The repository now contains the Vinext/Vite integration in `vite.config.ts`, the
 
 The browser-facing Supabase settings (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, or the project's configured anon-key equivalent) are compiled into the client bundle. They must be present in the build environment when the Cloudflare Worker is built; changing Worker runtime secrets later will not rewrite those client-bundle values. Keep only public Supabase values in `NEXT_PUBLIC_*`; keep the service-role key and Meta secrets server-only.
 
-The feature branch has passed the normal Next.js production build, typecheck, regression tests, Vinext compatibility scan, temporary Cloudflare initialization, Cloudflare Worker build, and local Worker HTTP 200 smoke test in GitHub Actions. The latest validated source commit is `3dd5e5e93ec251387d6cdb3a9dbf6ba9118fb76d`. Live staging integration tests remain outstanding.
+The feature branch has passed the normal Next.js production build, typecheck, regression tests, Vinext compatibility scan, temporary Cloudflare initialization, Cloudflare Worker build, and local Worker HTTP 200 smoke test in GitHub Actions. The earlier validated source commit was `9f4e68474efaaa47e45f67f5ee1ebb4a56090154`; the Neon workflow and this documentation update are newer changes and require their own CI run. Live staging integration tests remain outstanding.
 
 The checks above are build validation only. They do not prove that the Worker has been deployed or that live Supabase/Meta credentials work.
 
