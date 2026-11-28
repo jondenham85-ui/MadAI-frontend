@@ -30,7 +30,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.MADSI_AUTH_SUPABASE_PUBLISHABLE_KEY }}
       MADSI_FACEBOOK_STORAGE_BACKEND: neon
       NEON_STAGING_DATABASE_URL: ${{ secrets.NEON_STAGING_DATABASE_URL }}
-      PREVIEW_NAME: ${{ inputs.preview_name }}
+      PREVIEW_NAME: ${{ inputs.preview_name || 'madsi-facebook-cloudflare' }}
     steps:
       - name: Check out the approved feature branch
         uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
               exit 1
             fi
           done
-          if [[ "$NEXT_PUBLIC_SUPABASE_URL" != https://*.supabase.co ]]; then
+          if [[ ! "$NEXT_PUBLIC_SUPABASE_URL" =~ ^https://[a-zA-Z0-9-]+\.supabase\.co/?$ ]]; then
             echo "::error::MADSI_AUTH_SUPABASE_URL must point to the connected MADSI Supabase Auth project URL."
             exit 1
           fi
@@ -87,8 +87,8 @@ jobs:
         run: |
           {
             echo "## MADSI Cloudflare Preview"
-            echo "- Branch: `feat/madsi-facebook-cloudflare`"
-            echo "- Preview label: `$PREVIEW_NAME`"
+            echo "- Branch: feat/madsi-facebook-cloudflare"
+            echo "- Preview label: $PREVIEW_NAME"
             echo "- This workflow deploys a Cloudflare Preview only."
             echo "- It does not deploy the production Worker, change DNS, or migrate production Supabase."
             echo "- Configure preview-only server secrets and Meta callback settings in Cloudflare before testing Facebook OAuth."
