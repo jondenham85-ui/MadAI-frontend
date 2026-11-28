@@ -20,3 +20,13 @@ test('Webhook inbox migration has retryable processing states', () => {
  assert.ok(sql.includes("status text not null default 'pending'"));
  assert.ok(sql.includes('event_hash text primary key'));
 });
+
+test('Facebook event processor uses protected triage and retryable leases', () => {
+ const processor = fs.readFileSync(path.join(__dirname, '../lib/madsi-facebook-event-processor.ts'), 'utf8');
+ assert.ok(route.includes("if (action === 'process') return processWebhookEvents(request)"));
+ assert.ok(route.includes('MADSI_FACEBOOK_PROCESSOR_SECRET'));
+ assert.ok(route.includes("mode: 'triage_only'"));
+ assert.ok(route.includes('Recovered expired processing lease'));
+ assert.ok(processor.includes('owner_review'));
+ assert.ok(storage.includes('table === "madsi_facebook_webhook_events" && method === "PATCH"'));
+});

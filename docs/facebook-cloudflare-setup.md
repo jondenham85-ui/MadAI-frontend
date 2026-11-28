@@ -8,7 +8,7 @@
 - AES-GCM encryption of access tokens before storage in the selected server-side database (Neon for staging; Supabase REST remains available for production).
 - Owner-only status, recent Page posts, and Page insights endpoints.
 - A persisted, one-time publishing approval that must be explicitly created and consumed by an owner.
-- Meta webhook verification and HMAC-SHA256 signature validation. Verified events are acknowledged only; they do not trigger business actions.
+- Meta webhook verification and HMAC-SHA256 signature validation. Verified events are persisted, deduplicated, and can be triaged by a secret-protected processor. Triage classifies activity for owner review; it does not publish, message, or otherwise act on the Page.
 
 ## Database migration and runtime storage
 
@@ -94,6 +94,7 @@ Set these variables on the Worker serving the MADSI Next.js app. Never put secre
 | `MADSI_FACEBOOK_TOKEN_ENCRYPTION_KEY` | Secret | Base64 encoding of 32 cryptographically random bytes |
 | `META_GRAPH_API_VERSION` | Text | Graph API version; currently defaulted to `v27.0` |
 | `MADSI_APP_URL` | Text | `https://www.madmadisonai.com` |
+| `MADSI_FACEBOOK_PROCESSOR_SECRET` | Secret | Bearer secret for trusted event-processor invocations |
 
 Generate the encryption key locally with `openssl rand -base64 32`. Keep the output private and store it only as a Worker secret. Never send it in chat or commit it.
 
@@ -115,7 +116,7 @@ Requested permissions:
 
 The person authorizing must have appropriate Page tasks, including CREATE_CONTENT or MANAGE for publishing and ANALYZE for insights. Meta may require App Review / Advanced Access before people outside the app's roles can use the integration.
 
-For Webhooks, configure callback URL `https://www.madmadisonai.com/api/facebook/webhooks`, use the same `META_WEBHOOK_VERIFY_TOKEN`, and enable the Page fields needed by the product. Webhook requests are signature-checked but currently only acknowledged.
+For Webhooks, configure callback URL `https://www.madmadisonai.com/api/facebook/webhooks`, use the same `META_WEBHOOK_VERIFY_TOKEN`, and enable the Page fields needed by the product. Webhook requests are signature-checked and stored in the event inbox. The protected processor claims pending events, recovers expired processing leases, and adds a deterministic `madsi_triage` classification to each event for owner review. Its response explicitly reports `mode: triage_only`; it does not publish posts, reply to comments, send messages, or trigger other external actions. A trusted scheduler or operator must invoke this endpoint; no recurring schedule is configured yet.
 
 ## API routes
 
@@ -128,6 +129,7 @@ For Webhooks, configure callback URL `https://www.madmadisonai.com/api/facebook/
 - `POST /api/facebook/posts`
 - `GET /api/facebook/webhooks`
 - `POST /api/facebook/webhooks`
+- `POST /api/facebook/process` (trusted server only; requires `Authorization: Bearer <MADSI_FACEBOOK_PROCESSOR_SECRET>`)
 
 All management endpoints require a valid Supabase bearer token and an OWNER or ADMIN profile. Publishing consumes a matching, unexpired approval record before sending the post to Meta, preventing an approval from being reused.
 

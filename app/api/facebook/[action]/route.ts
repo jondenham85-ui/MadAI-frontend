@@ -1,4 +1,5 @@
 import { facebookStorage } from "@/lib/madsi-facebook-storage";
+import { classifyFacebookEvent } from "@/lib/madsi-facebook-event-processor";
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
@@ -311,6 +312,55 @@ async function webhookPost(request: Request) {
     return json({ error: 'Webhook event could not be persisted; Meta should retry delivery.' }, 503);
   }
 }
+
+async function processWebhookEvents(request: Request) {
+  const secret = value('MADSI_FACEBOOK_PROCESSOR_SECRET');
+  const authorization = request.headers.get('authorization') || '';
+  if (!secret) return json({ error: 'Facebook event processor is not configured.' }, 503);
+  if (request.headers.has('origin')) return json({ error: 'Forbidden' }, 403);
+  const supplied = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  let mismatch = secret.length ^ supplied.length;
+  for (let i = 0; i < Math.min(secret.length, supplied.length); i++) mismatch |= secret.charCodeAt(i) ^ supplied.charCodeAt(i);
+  if (mismatch !== 0) return json({ error: 'Unauthorized' }, 401);
+  if (!ready()) return json({ error: 'Facebook storage is not configured.' }, 503);
+  const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+  try {
+    await db('madsi_facebook_webhook_events?status=eq.processing&claimed_at=lt.' + encodeURIComponent(staleBefore), {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: 'pending', claimed_at: null, last_error: 'Recovered expired processing lease.' }),
+    });
+    const pending = await db('madsi_facebook_webhook_events?status=eq.pending&select=event_hash,page_id,field,event_time,event_metadata,attempts&limit=20');
+    const events = Array.isArray(pending) ? pending : [];
+    let processed = 0, skipped = 0, failed = 0;
+    for (const event of events) {
+      const attempts = Number(event.attempts || 0) + 1;
+      const claim = await db('madsi_facebook_webhook_events?event_hash=eq.' + encodeURIComponent(event.event_hash) + '&status=eq.pending', {
+        method: 'PATCH', headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ status: 'processing', attempts, claimed_at: new Date().toISOString() }),
+      });
+      if (!Array.isArray(claim) || claim.length !== 1) { skipped++; continue; }
+      try {
+        const triage = classifyFacebookEvent({ field: event.field, metadata: event.event_metadata || {} });
+        const metadata = { ...(event.event_metadata || {}), madsi_triage: { ...triage, processed_at: new Date().toISOString() } };
+        const completed = await db('madsi_facebook_webhook_events?event_hash=eq.' + encodeURIComponent(event.event_hash) + '&status=eq.processing', {
+          method: 'PATCH', headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ status: 'processed', processed_at: new Date().toISOString(), claimed_at: null, last_error: null, event_metadata: metadata }),
+        });
+        if (Array.isArray(completed) && completed.length === 1) processed++; else skipped++;
+      } catch {
+        failed++;
+        await db('madsi_facebook_webhook_events?event_hash=eq.' + encodeURIComponent(event.event_hash) + '&status=eq.processing', {
+          method: 'PATCH', headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ status: 'failed', claimed_at: null, last_error: 'Event triage failed; retry on next processor run.' }),
+        }).catch(() => null);
+      }
+    }
+    return json({ ok: true, fetched: events.length, processed, skipped, failed, mode: 'triage_only' });
+  } catch {
+    return json({ error: 'Facebook events could not be processed.' }, 503);
+  }
+}
+
 function failure(error: unknown) {
   const code = error instanceof Error ? error.message : '';
   if (code === 'AUTH_REQUIRED') return json({ error: 'Sign in to MADSI again.' }, 401);
@@ -336,6 +386,7 @@ export async function GET(request: Request, context: { params: Promise<{ action:
 export async function POST(request: Request, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params;
   if (action === 'webhooks') return webhookPost(request);
+  if (action === 'process') return processWebhookEvents(request);
   if (!sameOrigin(request)) return json({ error: 'Cross-site requests are not allowed.' }, 403);
   if (Number(request.headers.get('content-length') || 0) > 12_000) return json({ error: 'Request body too large.' }, 413);
   try {
