@@ -3,7 +3,7 @@ import {useEffect,useState} from 'react';
 import Header from '@/components/layout/Header';
 import {useUser} from '@/context/UserContext';
 import {apiRequest} from '@/services/auth';
-type Health={status:string;database?:string;service?:string;scope?:string};
+type Health={status:string;service?:string;provider?:string;model?:string};
 const features=[
  {n:'01',icon:'◉',title:'Think with MADSI',tag:'INTELLIGENCE',copy:'Get clear answers, explore decisions and turn complex questions into practical next steps.'},
  {n:'02',icon:'⌘',title:'Move work forward',tag:'TASKS & WORKFLOWS',copy:'Break goals into tasks and use recurring AI workflows to keep important work moving.'},
@@ -19,11 +19,11 @@ const plans=[
 ];
 export default function HomePage(){
  const {user}=useUser();const [health,setHealth]=useState<Health|null>(null);const [checked,setChecked]=useState(false);
- useEffect(()=>{let active=true;const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);apiRequest<Health>('/health',{public:true,signal:controller.signal}).then(data=>{if(active)setHealth(data)}).catch(()=>{}).finally(()=>{clearTimeout(timer);if(active)setChecked(true)});return()=>{active=false;clearTimeout(timer);controller.abort()}},[]);
- const online=health?.status==='ok';
+ useEffect(()=>{let active=true;const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);apiRequest<Health>('/api/madsi-inference',{public:true,signal:controller.signal}).then(data=>{if(active)setHealth(data)}).catch(()=>{}).finally(()=>{clearTimeout(timer);if(active)setChecked(true)});return()=>{active=false;clearTimeout(timer);controller.abort()}},[]);
+ const online=health?.status==='ready';
  const startHref=user?'/synth':'/signup';
  return <><Header/><main className="mad-main nx-home">
-  <div className="nx-home-status"><span>MADSI · SYNTHETIC INTELLIGENCE</span><span>{!checked?'CHECKING SYSTEM':online?'CORE CONNECTION ONLINE':'CONNECTION UNVERIFIED'}</span></div>
+  <div className="nx-home-status"><span>MADSI · SYNTHETIC INTELLIGENCE</span><span>{!checked?'CHECKING SYSTEM':online?'INTELLIGENCE ONLINE':'INTELLIGENCE UNVERIFIED'}</span></div>
   <section className="nx-hero"><div className="nx-hero-copy">
    <small>MADSI · MAD SYNTHETIC INTELLIGENCE</small><p className="nx-home-kicker">One intelligence. More momentum.</p>
    {user&&<p className="nx-home-greeting">Welcome back, {user.name||'there'}. {user.role==='OWNER'&&<a href="/admin">Owner command ↗</a>}</p>}
