@@ -9,7 +9,7 @@ create index if not exists madsi_facebook_oauth_states_expires_idx on public.mad
 
 create table if not exists public.madsi_facebook_connections (
   owner_user_id uuid primary key references auth.users(id) on delete cascade,
-  page_id text not null unique,
+  page_id text not null,
   page_name text not null,
   page_access_token_ciphertext text not null,
   granted_scopes text[] not null default '{}',
@@ -20,6 +20,8 @@ create table if not exists public.madsi_facebook_connections (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+create index if not exists madsi_facebook_connections_page_idx on public.madsi_facebook_connections (page_id);
+
 create table if not exists public.madsi_facebook_publish_approvals (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references auth.users(id) on delete cascade,
