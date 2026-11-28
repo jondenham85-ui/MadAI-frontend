@@ -18,8 +18,14 @@ jobs:
       github.event.action != 'closed' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+      - name: Check out the pull request source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
       - name: Set branch expiration
         id: expiry
         shell: bash
@@ -35,6 +41,60 @@ jobs:
           role: madsi_staging
           api_key: ${{ secrets.NEON_API_KEY }}
           expires_at: ${{ steps.expiry.outputs.expires_at }}
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Apply Facebook migration to this PR's isolated database
+        env:
+          NEON_DATABASE_URL: ${{ steps.create_branch.outputs.db_url }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NEON_DATABASE_URL:-}" ]; then
+            echo "::error::Neon did not return a connection URL for the PR branch."
+            exit 1
+          fi
+          psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261128000100_madsi_facebook.sql
+
+      - name: Verify isolated database schema and RLS
+        env:
+          NEON_DATABASE_URL: ${{ steps.create_branch.outputs.db_url }}
+        run: |
+          set -euo pipefail
+          psql "$NEON_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $verify$
+          DECLARE
+            expected text[] := ARRAY[
+              'madsi_facebook_oauth_states',
+              'madsi_facebook_connections',
+              'madsi_facebook_publish_approvals'
+            ];
+            actual_count integer;
+            rls_count integer;
+          BEGIN
+            SELECT count(*) INTO actual_count
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name = ANY(expected)
+              AND table_type = 'BASE TABLE';
+            IF actual_count <> 3 THEN
+              RAISE EXCEPTION 'Expected all 3 MADSI Facebook tables; found %', actual_count;
+            END IF;
+
+            SELECT count(*) INTO rls_count
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public'
+              AND c.relname = ANY(expected)
+              AND c.relrowsecurity;
+            IF rls_count <> 3 THEN
+              RAISE EXCEPTION 'RLS must be enabled on all 3 MADSI Facebook tables; found %', rls_count;
+            END IF;
+          END
+          $verify$;
+          SQL
 
   delete-neon-branch:
     name: Delete isolated Neon branch when PR closes
