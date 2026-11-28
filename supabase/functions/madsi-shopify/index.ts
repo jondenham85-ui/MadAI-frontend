@@ -66,6 +66,55 @@ async function shopifyGraphql(shop: string, token: string, query: string, variab
   if (!response.ok || payload?.errors?.length) throw new Error("SHOPIFY_API");
   return payload?.data;
 }
+
+async function getShopifyConnection(ownerId: string) {
+  const { data, error } = await db.from("madsi_shopify_connections")
+    .select("id,shop_domain,shop_name,access_token,refresh_token,access_token_expires_at,refresh_token_expires_at,granted_scopes,status")
+    .eq("owner_user_id", ownerId).maybeSingle();
+  if (error) throw new Error("SHOPIFY_CONNECTION_LOOKUP");
+  if (!data || data.status !== "connected") return null;
+  const accessExpiry = data.access_token_expires_at ? Date.parse(data.access_token_expires_at) : Number.POSITIVE_INFINITY;
+  if (accessExpiry > Date.now() + 5 * 60 * 1000) return data;
+  const refreshExpiry = data.refresh_token_expires_at ? Date.parse(data.refresh_token_expires_at) : 0;
+  if (!data.refresh_token || refreshExpiry <= Date.now()) return null;
+
+  const body = new URLSearchParams({
+    client_id: SHOPIFY_KEY,
+    client_secret: SHOPIFY_SECRET,
+    grant_type: "refresh_token",
+    refresh_token: data.refresh_token,
+  });
+  const response = await fetch(`https://${data.shop_domain}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", "accept": "application/json" },
+    body,
+    cache: "no-store",
+  });
+  const refreshed = await response.json().catch(() => null);
+  if (!response.ok || typeof refreshed?.access_token !== "string" ||
+      typeof refreshed?.refresh_token !== "string" ||
+      !Number.isFinite(refreshed?.expires_in) ||
+      !Number.isFinite(refreshed?.refresh_token_expires_in)) {
+    if (response.status === 401 || response.status === 400) {
+      await db.from("madsi_shopify_connections").update({ status: "reauthorization_required", updated_at: new Date().toISOString() }).eq("id", data.id);
+      return null;
+    }
+    throw new Error("SHOPIFY_TOKEN_REFRESH_TEMPORARY");
+  }
+
+  const now = Date.now();
+  const { data: saved, error: saveError } = await db.from("madsi_shopify_connections").update({
+    access_token: refreshed.access_token,
+    refresh_token: refreshed.refresh_token,
+    access_token_expires_at: new Date(now + refreshed.expires_in * 1000).toISOString(),
+    refresh_token_expires_at: new Date(now + refreshed.refresh_token_expires_in * 1000).toISOString(),
+    granted_scopes: String(refreshed.scope || (data.granted_scopes || []).join(",")).split(",").map((s: string) => s.trim()).filter(Boolean),
+    last_verified_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq("id", data.id).select("id,shop_domain,shop_name,access_token,refresh_token,access_token_expires_at,refresh_token_expires_at,granted_scopes,status").single();
+  if (saveError || !saved) throw new Error("SHOPIFY_TOKEN_REFRESH_SAVE");
+  return saved;
+}
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: headers(req.headers.get("origin")) });
   const url = new URL(req.url);
@@ -123,8 +172,8 @@ Deno.serve(async (req: Request) => {
       }
       const exchange = await fetch(`https://${shop}/admin/oauth/access_token`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+        headers: { "content-type": "application/x-www-form-urlencoded", "accept": "application/json" },
+        body: new URLSearchParams({
           client_id: SHOPIFY_KEY,
           client_secret: SHOPIFY_SECRET,
           grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
@@ -172,25 +221,22 @@ Deno.serve(async (req: Request) => {
       });
     }
     if (url.pathname.endsWith("/status") && req.method === "GET") {
-      const { data, error } = await db.from("madsi_shopify_connections")
-        .select("shop_domain,shop_name,granted_scopes,status,last_verified_at,access_token_expires_at,refresh_token_expires_at,refresh_token")
-        .eq("owner_user_id", ownerId).maybeSingle();
-      if (error) return json(req, { error: "Connection status unavailable." }, 503);
-      if (!data) return json(req, { connected: false, connection: null });
-      const accessExpired = !!data.access_token_expires_at && Date.parse(data.access_token_expires_at) <= Date.now();
-      const refreshExpired = !!data.refresh_token_expires_at && Date.parse(data.refresh_token_expires_at) <= Date.now();
-      const needsReauth = data.status !== "connected" || accessExpired || refreshExpired;
+      let data;
+      try { data = await getShopifyConnection(ownerId); }
+      catch { return json(req, { error: "Shopify token refresh is temporarily unavailable. Your stored connection was not discarded.", code: "SHOPIFY_REFRESH_TEMPORARY" }, 503); }
+      if (!data) return json(req, { connected: false, connection: null, status: "reauthorization_required" });
       const connection = {
         shop_domain: data.shop_domain, shop_name: data.shop_name, granted_scopes: data.granted_scopes,
-        status: needsReauth ? "reauthorization_required" : data.status,
-        last_verified_at: data.last_verified_at,
+        status: data.status, last_verified_at: new Date().toISOString(),
         access_token_expires_at: data.access_token_expires_at,
       };
-      return json(req, { connected: !needsReauth, connection });
+      return json(req, { connected: true, connection });
     }
     if (url.pathname.endsWith("/products") && req.method === "GET") {
-      const { data: connection } = await db.from("madsi_shopify_connections").select("shop_domain,access_token").eq("owner_user_id", ownerId).eq("status", "connected").maybeSingle();
-      if (!connection) return json(req, { error: "Connect MAD Warehouse first." }, 409);
+      let connection;
+      try { connection = await getShopifyConnection(ownerId); }
+      catch { return json(req, { error: "Shopify token refresh is temporarily unavailable.", code: "SHOPIFY_REFRESH_TEMPORARY" }, 503); }
+      if (!connection) return json(req, { error: "Reopen MADSi inside Shopify Admin to renew its secure connection.", code: "SHOPIFY_REAUTH_REQUIRED" }, 409);
       const data = await shopifyGraphql(connection.shop_domain, connection.access_token, `query { products(first: 50, sortKey: UPDATED_AT, reverse: true) { nodes { id title handle status vendor totalInventory featuredImage { url altText } variants(first: 10) { nodes { id title price inventoryQuantity } } } } } `);
       return json(req, { products: data?.products?.nodes || [] });
     }
@@ -206,9 +252,10 @@ Deno.serve(async (req: Request) => {
       const tags = Array.isArray(body.tags)
         ? body.tags.filter((tag: unknown): tag is string => typeof tag === "string").map((tag: string) => tag.trim()).filter(Boolean).slice(0, 20)
         : [];
-      const { data: connection, error: connectionError } = await db.from("madsi_shopify_connections")
-        .select("shop_domain,access_token,granted_scopes").eq("owner_user_id", ownerId).eq("status", "connected").maybeSingle();
-      if (connectionError || !connection) return json(req, { error: "Connect MAD Warehouse first." }, 409);
+      let connection;
+      try { connection = await getShopifyConnection(ownerId); }
+      catch { return json(req, { error: "Shopify token refresh is temporarily unavailable.", code: "SHOPIFY_REFRESH_TEMPORARY" }, 503); }
+      if (!connection) return json(req, { error: "Reopen MADSi inside Shopify Admin to renew its secure connection.", code: "SHOPIFY_REAUTH_REQUIRED" }, 409);
       if (!Array.isArray(connection.granted_scopes) || !connection.granted_scopes.includes("write_products")) {
         return json(req, { error: "MADSI needs Shopify write_products permission. Update the existing MADSi app's scopes and reauthorize it once.", code: "SHOPIFY_WRITE_SCOPE_REQUIRED" }, 403);
       }
@@ -231,8 +278,10 @@ Deno.serve(async (req: Request) => {
       return json(req, { created: true, product: created.product, published: false }, 201);
     }
     if (url.pathname.endsWith("/orders") && req.method === "GET") {
-      const { data: connection } = await db.from("madsi_shopify_connections").select("shop_domain,access_token").eq("owner_user_id", ownerId).eq("status", "connected").maybeSingle();
-      if (!connection) return json(req, { error: "Connect MAD Warehouse first." }, 409);
+      let connection;
+      try { connection = await getShopifyConnection(ownerId); }
+      catch { return json(req, { error: "Shopify token refresh is temporarily unavailable.", code: "SHOPIFY_REFRESH_TEMPORARY" }, 503); }
+      if (!connection) return json(req, { error: "Reopen MADSi inside Shopify Admin to renew its secure connection.", code: "SHOPIFY_REAUTH_REQUIRED" }, 409);
       const data = await shopifyGraphql(connection.shop_domain, connection.access_token, `query { orders(first: 25, sortKey: CREATED_AT, reverse: true) { nodes { id name createdAt displayFinancialStatus displayFulfillmentStatus totalPriceSet { shopMoney { amount currencyCode } } } } }`);
       return json(req, { orders: data?.orders?.nodes || [] });
     }
