@@ -7,6 +7,13 @@ const SUPABASE_FUNCTIONS = require('./lib/production-backend.cjs');
 const nextConfig = {
   reactStrictMode: true,
   env: { NEXT_PUBLIC_API_URL: '/api/backend' },
+  webpack(config) {
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      "cloudflare:workers": require.resolve("./lib/cloudflare-workers-stub.cjs"),
+    };
+    return config;
+  },
   async rewrites() {
     return [
       { source: '/api/backend/:path*', destination: `${SUPABASE_FUNCTIONS}/madsi-api/:path*` },
