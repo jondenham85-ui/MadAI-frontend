@@ -67,3 +67,18 @@ jobs:
 
       - name: Build the Cloudflare Workers application
         run: npm run build:vinext
+
+      - name: Smoke-test the built Worker locally
+        run: |
+          npm run start:vinext -- --host 127.0.0.1 --port 8788 > "$RUNNER_TEMP/madsi-worker-preview.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --show-error --fail http://127.0.0.1:8788/ -o "$RUNNER_TEMP/madsi-worker-home.html"; then
+              echo "Built Worker preview returned HTTP 200 for /"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/madsi-worker-preview.log"
+          exit 1
