@@ -98,9 +98,8 @@ function redirect(result: string) {
   url.searchParams.set('facebook', result);
   return Response.redirect(url.toString(), 303);
 }
-async function connect(request: Request) {
+async function connect(request: Request, ownerId: string) {
   if (!ready()) return json({ error: 'Facebook integration is not configured on this Worker yet.', code: 'FACEBOOK_SETUP_REQUIRED' }, 503);
-  const ownerId = await owner(request);
   const state = randomHex();
   await db('madsi_facebook_oauth_states', {
     method: 'POST', headers: { Prefer: 'return=minimal' },
@@ -186,7 +185,9 @@ async function getStatus(ownerId: string) {
   const rows = await db('madsi_facebook_connections?owner_user_id=eq.' + encodeURIComponent(ownerId) +
     '&select=page_id,page_name,granted_scopes,page_tasks,status,token_expires_at,last_verified_at&limit=1');
   const row = Array.isArray(rows) ? rows[0] : null;
-  return json({ connected: row?.status === 'connected', connection: row || null });
+  const tokenValid = !row?.token_expires_at || Date.parse(row.token_expires_at) > Date.now();
+  const connected = row?.status === 'connected' && tokenValid;
+  return json({ connected, connection: row ? { ...row, status: connected ? 'connected' : 'expired' } : null });
 }
 async function getPosts(ownerId: string) {
   const saved = await getConnection(ownerId);
@@ -240,8 +241,10 @@ async function publish(request: Request, ownerId: string) {
 }
 async function webhookGet(request: Request) {
   const url = new URL(request.url);
+  const expectedToken = value('META_WEBHOOK_VERIFY_TOKEN');
+  if (!expectedToken) return new Response('Webhook verification is not configured', { status: 503 });
   if (url.searchParams.get('hub.mode') === 'subscribe' &&
-      url.searchParams.get('hub.verify_token') === value('META_WEBHOOK_VERIFY_TOKEN') &&
+      url.searchParams.get('hub.verify_token') === expectedToken &&
       url.searchParams.get('hub.challenge')) {
     return new Response(url.searchParams.get('hub.challenge'), { status: 200, headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' } });
   }
@@ -290,7 +293,7 @@ export async function POST(request: Request, context: { params: Promise<{ action
   try {
     if (!ready()) return json({ error: 'Facebook integration is not configured on this Worker yet.', code: 'FACEBOOK_SETUP_REQUIRED' }, 503);
     const ownerId = await owner(request);
-    if (action === 'connect') return await connect(request);
+    if (action === 'connect') return await connect(request, ownerId);
     if (action === 'approval') return await createApproval(request, ownerId);
     if (action === 'posts') return await publish(request, ownerId);
     return json({ error: 'Not found.' }, 404);
