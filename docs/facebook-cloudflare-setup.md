@@ -172,6 +172,14 @@ Its build command is intentionally empty because this command builds the app and
 
 For a future production Workers Builds connection, use a dedicated `mad-ai-frontend` Worker with the production branch set to `main`, an empty build command, and `npx @vinext/cloudflare deploy` as its deploy command. Do not repoint the existing `madsi-inference` Worker or its build configuration to the frontend application.
 
+## Guarded Cloudflare production release
+
+The repository includes `.github/workflows/madsi-cloudflare-production.yml`. It is a manual `workflow_dispatch` release that refuses to run from any ref other than `main`. It runs typecheck and regression tests, then uses the native Vinext command `npx @vinext/cloudflare deploy` to deploy the existing Next.js app as the `mad-ai-frontend` Worker.
+
+The workflow requires the existing GitHub Actions secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `MADSI_AUTH_SUPABASE_URL`, and `MADSI_AUTH_SUPABASE_PUBLISHABLE_KEY`. The Supabase URL/key are public client configuration; no service-role key, Meta secret, database password, or Facebook token is placed in GitHub Actions or the browser bundle.
+
+This production workflow deploys the Worker to its Cloudflare Workers hostname only. It does not attach `www.madmadisonai.com`, alter DNS, or modify the separate `madsi-inference` Worker. Verify the new Worker and configure its server-only runtime secrets before switching the public domain. Facebook management remains unavailable until the Worker has `SUPABASE_SERVICE_ROLE_KEY`, `META_APP_ID`, `META_APP_SECRET`, `MADSI_FACEBOOK_TOKEN_ENCRYPTION_KEY`, and `META_WEBHOOK_VERIFY_TOKEN` configured in Cloudflare. Set `MADSI_APP_URL` to the active public origin when the domain cutover is ready.
+
 ## Automatic Neon pull-request branches
 
 The repository includes `.github/workflows/madsi-neon-pr-branches.yml`.
