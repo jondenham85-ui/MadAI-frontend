@@ -98,7 +98,7 @@ The repository now contains the Vinext/Vite integration in `vite.config.ts`, the
 
 The browser-facing Supabase settings (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, or the project's configured anon-key equivalent) are compiled into the client bundle. They must be present in the build environment when the Cloudflare Worker is built; changing Worker runtime secrets later will not rewrite those client-bundle values. Keep only public Supabase values in `NEXT_PUBLIC_*`; keep the service-role key and Meta secrets server-only.
 
-The feature branch has passed the normal Next.js production build, typecheck, regression tests, Vinext compatibility scan, temporary Cloudflare initialization, and Cloudflare Worker build in GitHub Actions. A further local Worker runtime smoke test and live staging integration test remain outstanding.
+The feature branch has passed the normal Next.js production build, typecheck, regression tests, Vinext compatibility scan, temporary Cloudflare initialization, Cloudflare Worker build, and local Worker HTTP 200 smoke test in GitHub Actions. The latest validated source commit is `3dd5e5e93ec251387d6cdb3a9dbf6ba9118fb76d`. Live staging integration tests remain outstanding.
 
 The checks above are build validation only. They do not prove that the Worker has been deployed or that live Supabase/Meta credentials work.
 
