@@ -39,6 +39,22 @@ isolated Supabase staging environment and staging Meta/Cloudflare settings are
 available. Do not use the production Supabase project as a substitute for
 staging, and do not apply the migration to production as part of CI.
 
+## Neon staging database (provisioned 2026-11-28)
+
+A separate free-tier Neon project is now provisioned for MADSI staging:
+
+- Project: `MADSI-Staging`
+- Project ID: `dry-haze-09159013`
+- Region: `aws-us-east-2` (US East 2)
+- Branch: `main` (`br-sparkling-bread-be52ypng`)
+- Database: `madsi_staging`
+- PostgreSQL: 18
+- Compute: 0.25 CU minimum/maximum; free organization plan
+
+The Facebook integration migration was applied to this isolated Neon database after adding a minimal compatibility `auth.users` table and the Supabase role names required by the SQL grants. Validation confirmed all three Facebook tables exist with row-level security enabled, the same Facebook Page ID can be represented by two distinct owner records, and the migration's service-role grants are present. Temporary test rows were removed after validation.
+
+This Neon database is PostgreSQL staging only. It does not provide Supabase Auth, Supabase Storage, Supabase JWT validation, or the Supabase service-role API. Do not point the running application at Neon as a replacement for the production Supabase project. Keep production Supabase unchanged; use Neon for isolated SQL/migration regression and schema development. Full Facebook OAuth testing still needs a staging Supabase Auth/service-role environment and a staging Meta app.
+
 ## Cloudflare Worker environment
 
 Set these variables on the Worker serving the MADSI Next.js app. Never put secrets in `NEXT_PUBLIC_*` variables, source code, GitHub, or browser code.
