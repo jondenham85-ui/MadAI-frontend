@@ -29,6 +29,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.MADSI_AUTH_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.MADSI_AUTH_SUPABASE_PUBLISHABLE_KEY }}
       MADSI_FACEBOOK_STORAGE_BACKEND: neon
+      MADSI_PREVIEW_MODE: "true"
       NEON_STAGING_DATABASE_URL: ${{ secrets.NEON_STAGING_DATABASE_URL }}
       PREVIEW_NAME: ${{ inputs.preview_name || 'madsi-facebook-cloudflare' }}
     steps:
