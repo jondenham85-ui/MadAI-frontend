@@ -179,7 +179,7 @@ Deno.serve(async (req: Request) => {
       if (!data) return json(req, { connected: false, connection: null });
       const accessExpired = !!data.access_token_expires_at && Date.parse(data.access_token_expires_at) <= Date.now();
       const refreshExpired = !!data.refresh_token_expires_at && Date.parse(data.refresh_token_expires_at) <= Date.now();
-      const needsReauth = data.status !== "connected" || (accessExpired && (!data.refresh_token || refreshExpired));
+      const needsReauth = data.status !== "connected" || accessExpired || refreshExpired;
       const connection = {
         shop_domain: data.shop_domain, shop_name: data.shop_name, granted_scopes: data.granted_scopes,
         status: needsReauth ? "reauthorization_required" : data.status,
