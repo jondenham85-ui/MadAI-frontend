@@ -111,4 +111,16 @@ Before any deployment:
 5. Deploy only to staging, then verify OAuth, Page discovery, insights, webhook verification, and approval-gated publishing.
 6. Do not switch production traffic until staging passes and production rollout is explicitly approved.
 
-For an isolated branch Preview, use the repository's Cloudflare CLI (`cf`) with `npx cf previews deploy` after configuring Cloudflare credentials and preview-safe settings. This creates a branch-scoped Preview URL and does not switch production traffic. Cloudflare documents Previews as separate environments with their own settings and URL: https://developers.cloudflare.com/workers/previews/. For a normal deployment, use `npx cf auth login`, followed by `npx cf deploy --dry-run` and then `npx cf deploy`. The last command uploads and deploys the Worker and must not be run without explicit production approval.
+The repository now includes a guarded manual workflow at `.github/workflows/madsi-cloudflare-preview.yml`. Run it from the `feat/madsi-facebook-cloudflare` branch only. It runs typecheck and regression tests, then uses Vinext's supported `npx @vinext/cloudflare previews deploy --preview-name madsi-facebook-cloudflare` command. It creates an isolated Cloudflare Preview; it does not deploy the production Worker, change DNS, or migrate production Supabase.
+
+Before running it, configure these GitHub Actions repository secrets (use staging values only):
+- `CLOUDFLARE_API_TOKEN` — token with the Cloudflare Workers deployment permissions required by Vinext.
+- `CLOUDFLARE_ACCOUNT_ID` — the target Cloudflare account ID.
+- `STAGING_SUPABASE_URL` — URL of a separate staging Supabase project.
+- `STAGING_SUPABASE_PUBLISHABLE_KEY` — publishable/anon key belonging to that staging project.
+
+The workflow intentionally stops before deployment if any are missing, or if the Supabase URL is not a Supabase project URL. Do not point it at the production Supabase project.
+
+After the Preview URL is created, configure the Preview's server-side variables/secrets in Cloudflare Preview settings: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_FACEBOOK_PAGE_ID`, `META_WEBHOOK_VERIFY_TOKEN`, `MADSI_FACEBOOK_TOKEN_ENCRYPTION_KEY`, `META_GRAPH_API_VERSION`, and `MADSI_APP_URL`. Use a staging Meta app and staging Page/test assets. Add the Preview's exact callback URL to the staging Meta app and configure its webhook URL there. Keep service-role and Meta credentials in Cloudflare's secret store; never put them in GitHub build secrets, source code, or chat.
+
+Cloudflare documents Previews as separate environments with their own settings and URL: https://developers.cloudflare.com/workers/previews/. For a normal deployment, use `npx cf auth login`, followed by `npx cf deploy --dry-run` and then `npx cf deploy`. The last command uploads and deploys the Worker and must not be run without explicit production approval.
