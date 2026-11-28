@@ -5,6 +5,7 @@ export default defineConfig({
     name: "mad-ai-frontend",
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-28",
+    compatibilityFlags: ["nodejs_compat"],
     assets: {
       htmlHandling: "none",
       notFoundHandling: "none",
