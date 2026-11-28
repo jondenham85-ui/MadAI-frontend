@@ -1,3 +1,6 @@
+// @ts-ignore Cloudflare resolves this native module inside workerd.
+import { env } from "cloudflare:workers";
+
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
@@ -29,11 +32,19 @@ function workerUrl() {
   return (process.env.MADSI_CLOUDFLARE_WORKER_URL || 'https://madsi-inference.madsi.workers.dev').replace(/\/+$/, '');
 }
 
+type InferenceService = { fetch(request: Request): Promise<Response> };
+
+function inferenceRequest(path: string, init: RequestInit = {}) {
+  const service = (env as unknown as { MADSI_INFERENCE?: InferenceService }).MADSI_INFERENCE;
+  if (service) return service.fetch(new Request(`https://madsi-inference${path}`, init));
+  return fetch(workerUrl() + path, init);
+}
+
 export async function GET() {
   const endpoint = workerUrl();
   if (!endpoint) return json(503, { status: 'not-configured', service: 'MADSI Cloudflare inference' });
   try {
-    const response = await fetch(endpoint + '/health', {
+    const response = await inferenceRequest('/health', {
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
     });
@@ -133,7 +144,7 @@ export async function POST(request: Request) {
   const role = body.account?.role === 'OWNER' ? 'OWNER' : 'USER';
 
   try {
-    const response = await fetch(endpoint + '/v1/inference', {
+    const response = await inferenceRequest('/v1/inference', {
       method: 'POST',
       headers: {
         Authorization: authorization,
