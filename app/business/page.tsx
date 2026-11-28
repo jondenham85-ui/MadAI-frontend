@@ -7,7 +7,7 @@ import { useUser } from '@/context/UserContext';
 import { getAccessToken } from '@/lib/supabase';
 
 const SHOPIFY_URL = 'https://rcetiocftggebqzfuncd.supabase.co/functions/v1/madsi-shopify';
-const SHOPIFY_API_KEY = '7b4d17e22675f2f9c7fb167bd0b955ab';
+const SHOPIFY_API_KEY = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY || '7b4d17e22675f2f9c7fb167bd0b955ab';
 declare global { interface Window { shopify?: { idToken: () => Promise<string> } } }
 type Connection = { shop_domain: string; shop_name: string | null; granted_scopes: string[]; status: string; last_verified_at: string | null };
 type Product = { id: string; title: string; status: string; vendor: string; totalInventory: number; variants?: { nodes: { title: string; price: string; inventoryQuantity: number }[] } };
