@@ -33,8 +33,13 @@ export async function validateShopifyIdToken(token, clientId, clientSecret, nowS
     throw new Error("INVALID_SHOPIFY_SESSION");
   }
 
-  const dest = new URL(typeof claims.dest === "string" ? claims.dest : "");
-  const issuer = new URL(typeof claims.iss === "string" ? claims.iss : "");
+  let dest, issuer;
+  try {
+    dest = new URL(typeof claims.dest === "string" ? claims.dest : "");
+    issuer = new URL(typeof claims.iss === "string" ? claims.iss : "");
+  } catch {
+    throw new Error("INVALID_SHOPIFY_SESSION");
+  }
   const shop = dest.hostname.toLowerCase();
   if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop) ||
       dest.protocol !== "https:" || issuer.protocol !== "https:" ||
