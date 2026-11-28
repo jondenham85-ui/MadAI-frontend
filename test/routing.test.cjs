@@ -89,3 +89,12 @@ test('pricing offers annual billing at the configured Stripe yearly price points
   assert.match(source, /Yearly/);
   assert.match(source, /billed annually/);
 });
+
+
+test('homepage status checks live MADSI inference rather than only the API health route', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../app/page.tsx'), 'utf8');
+  assert.match(source, /apiRequest<Health>\('\/api\/madsi-inference'/);
+  assert.match(source, /health\?\.status==='ready'/);
+  assert.match(source, /INTELLIGENCE ONLINE/);
+  assert.doesNotMatch(source, /apiRequest<Health>\('\/health'/);
+});
