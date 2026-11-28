@@ -20,6 +20,7 @@ export default defineConfig({
     },
     env: {
       ASSETS: bindings.assets(),
+      MADSI_INFERENCE: bindings.worker({ worker: "madsi-inference", dev: { remote: true } }),
     },
   }),
 });

@@ -29,11 +29,25 @@ function workerUrl() {
   return (process.env.MADSI_CLOUDFLARE_WORKER_URL || 'https://madsi-inference.madsi.workers.dev').replace(/\/+$/, '');
 }
 
+type InferenceService = { fetch(request: Request): Promise<Response> };
+
+async function inferenceRequest(path: string, init: RequestInit = {}) {
+  try {
+    // @ts-ignore Cloudflare resolves this native module inside workerd; webpack leaves it external.
+    const cloudflare = await import(/* webpackIgnore: true */ "cloudflare:workers");
+    const service = (cloudflare.env as unknown as { MADSI_INFERENCE?: InferenceService }).MADSI_INFERENCE;
+    if (service) return await service.fetch(new Request(`https://madsi-inference${path}`, init));
+  } catch {
+    // Node/Vercel runtimes do not expose Cloudflare bindings; use the URL fallback.
+  }
+  return fetch(workerUrl() + path, init);
+}
+
 export async function GET() {
   const endpoint = workerUrl();
   if (!endpoint) return json(503, { status: 'not-configured', service: 'MADSI Cloudflare inference' });
   try {
-    const response = await fetch(endpoint + '/health', {
+    const response = await inferenceRequest('/health', {
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
     });
@@ -133,7 +147,7 @@ export async function POST(request: Request) {
   const role = body.account?.role === 'OWNER' ? 'OWNER' : 'USER';
 
   try {
-    const response = await fetch(endpoint + '/v1/inference', {
+    const response = await inferenceRequest('/v1/inference', {
       method: 'POST',
       headers: {
         Authorization: authorization,
