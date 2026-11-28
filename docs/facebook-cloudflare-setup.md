@@ -153,3 +153,30 @@ The workflow intentionally stops before deployment if any are missing, or if the
 After the Preview URL is created, configure the Preview's server-side variables/secrets in Cloudflare Preview settings: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `META_APP_ID`, `META_APP_SECRET`, `META_FACEBOOK_PAGE_ID`, `META_WEBHOOK_VERIFY_TOKEN`, `MADSI_FACEBOOK_TOKEN_ENCRYPTION_KEY`, `META_GRAPH_API_VERSION`, and `MADSI_APP_URL`. Use a staging Meta app and staging Page/test assets. Add the Preview's exact callback URL to the staging Meta app and configure its webhook URL there. Keep service-role and Meta credentials in Cloudflare's secret store; never put them in GitHub build secrets, source code, or chat.
 
 Cloudflare documents Previews as separate environments with their own settings and URL: https://developers.cloudflare.com/workers/previews/. For a normal deployment, use `npx cf auth login`, followed by `npx cf deploy --dry-run` and then `npx cf deploy`. The last command uploads and deploys the Worker and must not be run without explicit production approval.
+
+
+## Automatic Neon pull-request branches
+
+The repository includes `.github/workflows/madsi-neon-pr-branches.yml`.
+For pull requests opened, reopened, or updated within this repository, it
+creates an isolated Neon branch named `preview/pr-<number>-<branch>`.
+The branch is configured to expire after 14 days and is explicitly deleted
+when the pull request closes. Pull requests originating from forks are
+skipped so repository Neon credentials are never exposed to fork workflows.
+
+Configure these repository settings before expecting the automation to run:
+
+- Actions secret `NEON_API_KEY`: create an API key in Neon account settings.
+- Actions variable `NEON_PROJECT_ID`: set to `dry-haze-09159013`
+  (the `MADSI-Staging` project).
+
+This API key is separate from `NEON_STAGING_DATABASE_URL`, which is used
+only by the manual persistent-staging migration workflow. Do not put either
+value in source code or chat. Neon PR branches are disposable database
+branches under the staging project; they do not change production Supabase
+or the persistent `main` staging branch.
+
+The PR branch workflow provisions and cleans up databases only. It does not
+yet run migrations or inject a database URL into the application preview.
+Those are separate follow-up steps and should be added only when the app's
+preview workflow is ready to consume an isolated per-PR database safely.
