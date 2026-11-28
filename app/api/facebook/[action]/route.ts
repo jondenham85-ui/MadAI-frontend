@@ -96,7 +96,16 @@ async function graph(path: string, params: Record<string, string>, method: 'GET'
 function redirect(result: string) {
   const url = new URL('/settings/integrations/facebook', site());
   url.searchParams.set('facebook', result);
-  return Response.redirect(url.toString(), 303);
+  return new Response(null, { status: 303, headers: {
+    Location: url.toString(),
+    'Cache-Control': 'no-store',
+    'Set-Cookie': 'madsi_fb_oauth_state=; Path=/api/facebook/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
+  } });
+}
+function cookieValue(request: Request, name: string) {
+  const cookie = request.headers.get('cookie') || '';
+  const entry = cookie.split(';').map(part => part.trim()).find(part => part.startsWith(name + '='));
+  return entry ? entry.slice(name.length + 1) : '';
 }
 async function connect(request: Request, ownerId: string) {
   if (!ready()) return json({ error: 'Facebook integration is not configured on this Worker yet.', code: 'FACEBOOK_SETUP_REQUIRED' }, 503);
@@ -112,14 +121,17 @@ async function connect(request: Request, ownerId: string) {
   url.searchParams.set('state', state);
   url.searchParams.set('scope', SCOPES.join(','));
   url.searchParams.set('auth_type', 'rerequest');
-  return json({ authorization_url: url.toString() });
+  const response = json({ authorization_url: url.toString() });
+  response.headers.append('Set-Cookie', 'madsi_fb_oauth_state=' + state + '; Path=/api/facebook/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=600');
+  return response;
 }
 async function callbackGet(request: Request) {
   const url = new URL(request.url);
   if (url.searchParams.has('error')) return redirect('authorization_cancelled');
   const state = url.searchParams.get('state') || '';
   const code = url.searchParams.get('code') || '';
-  if (!/^[a-f0-9]{64}$/.test(state) || !code) return redirect('invalid_authorization');
+  const browserState = cookieValue(request, 'madsi_fb_oauth_state');
+  if (!/^[a-f0-9]{64}$/.test(state) || !code || !browserState || browserState !== state) return redirect('invalid_authorization');
   if (!ready()) return redirect('setup_required');
   try {
     const stateHash = await hash(state);
