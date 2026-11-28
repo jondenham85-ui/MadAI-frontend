@@ -1,0 +1,72 @@
+name: MADSI Cloudflare production release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: madsi-cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.MADSI_AUTH_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.MADSI_AUTH_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Require production deployment credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub Actions secret for ${name}. Do not paste secrets into chat."
+              exit 1
+            fi
+          done
+          if [[ ! "$NEXT_PUBLIC_SUPABASE_URL" =~ ^https://[a-zA-Z0-9-]+\.supabase\.co/?$ ]]; then
+            echo "::error::MADSI_AUTH_SUPABASE_URL must point to the existing MADSI production Supabase project."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run release checks
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Deploy the existing MADSI app to its Cloudflare Worker
+        run: npx @vinext/cloudflare deploy
+
+      - name: Record production deployment boundary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## MADSI Cloudflare production release"
+            echo "- Source: main"
+            echo "- Worker: mad-ai-frontend"
+            echo "- This deploy does not change DNS or attach www.madmadisonai.com."
+            echo "- The existing madsi-inference Worker is not modified."
+            echo "- Configure server-only Supabase and Meta secrets on mad-ai-frontend before enabling Facebook management."
+          } >> "$GITHUB_STEP_SUMMARY"
