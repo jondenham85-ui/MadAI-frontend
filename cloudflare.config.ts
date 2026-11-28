@@ -1,7 +1,9 @@
-import { bindings, defineConfig, defineWorker } from "cf/config";
+import { bindings, defineConfig, defineWorker, triggers } from "cf/config";
 
-export default defineConfig({
+export default defineConfig(({ isPreview }) => ({
   worker: defineWorker({
+    entrypoint: "./worker/index.ts",
+    triggers: isPreview ? [] : [triggers.scheduled({ schedule: "*/5 * * * *" })],
     name: "mad-ai-frontend",
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-28",
@@ -22,4 +24,4 @@ export default defineConfig({
       ASSETS: bindings.assets(),
     },
   }),
-});
+}));

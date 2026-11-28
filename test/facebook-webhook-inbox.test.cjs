@@ -48,3 +48,13 @@ test('Neon event storage has exactly one GET implementation and supports PATCH c
  assert.equal(getBranches,1);
  assert.ok(storage.includes('method === "PATCH"'));
 });
+
+test('Cloudflare scheduled processor is enabled only for production Worker builds', () => {
+ const config=fs.readFileSync(path.join(__dirname, '../cloudflare.config.ts'),'utf8');
+ const entry=fs.readFileSync(path.join(__dirname, '../worker/index.ts'),'utf8');
+ assert.ok(config.includes('entrypoint: "./worker/index.ts"'));
+ assert.ok(config.includes('isPreview ? [] : [triggers.scheduled({ schedule: "*/5 * * * *" })]'));
+ assert.ok(entry.includes('handler.fetch(request, env, ctx)'));
+ assert.ok(entry.includes('/api/facebook/process'));
+ assert.ok(entry.includes('MADSI_FACEBOOK_PROCESSOR_SECRET'));
+});
