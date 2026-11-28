@@ -41,7 +41,9 @@ export async function facebookStorage(
   init: RequestInit,
   supabaseFallback: (path: string, init?: RequestInit) => Promise<any>,
 ): Promise<any> {
-  if (!value("MADSI_DATABASE_URL")) return supabaseFallback(path, init);
+  const backend = value("MADSI_FACEBOOK_STORAGE_BACKEND") || "supabase";
+  if (backend === "supabase") return supabaseFallback(path, init);
+  if (backend !== "neon" || !value("MADSI_DATABASE_URL")) throw new Error("DATABASE_NOT_CONFIGURED");
   const [table, rawQuery = ""] = path.split("?");
   if (!allowedColumns[table]) return supabaseFallback(path, init);
   const params = new URLSearchParams(rawQuery);
