@@ -88,4 +88,4 @@ Before any deployment:
 5. Deploy only to staging, then verify OAuth, Page discovery, insights, webhook verification, and approval-gated publishing.
 6. Do not switch production traffic until staging passes and production rollout is explicitly approved.
 
-The official Vinext/Cloudflare deployment flow uses `npx cf auth login`, followed by `npx @vinext/cloudflare deploy --dry-run` and then `npx @vinext/cloudflare deploy`. The last command performs a real deployment and must not be run without approval.
+For an isolated branch Preview, use the repository's Cloudflare CLI (`cf`) with `npx cf previews deploy` after configuring Cloudflare credentials and preview-safe settings. This creates a branch-scoped Preview URL and does not switch production traffic. Cloudflare documents Previews as separate environments with their own settings and URL: https://developers.cloudflare.com/workers/previews/. For a normal deployment, use `npx cf auth login`, followed by `npx cf deploy --dry-run` and then `npx cf deploy`. The last command uploads and deploys the Worker and must not be run without explicit production approval.
