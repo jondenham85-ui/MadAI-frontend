@@ -20,20 +20,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Set branch expiration
+        id: expiry
+        shell: bash
+        run: echo "expires_at=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
       - name: Create Neon branch for this pull request
+        id: create_branch
         uses: neondatabase/create-branch-action@v6
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: preview/pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.ref }}
           api_key: ${{ secrets.NEON_API_KEY }}
           expires_at: ${{ steps.expiry.outputs.expires_at }}
-        id: create_branch
-
-      - name: Set branch expiration
-        id: expiry
-        if: always()
-        shell: bash
-        run: echo "expires_at=$(date -u --date '+14 days' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
 
   delete-neon-branch:
     name: Delete isolated Neon branch when PR closes
