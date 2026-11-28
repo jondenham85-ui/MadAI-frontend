@@ -172,6 +172,12 @@ Its build command is intentionally empty because this command builds the app and
 
 For a future production Workers Builds connection, use a dedicated `mad-ai-frontend` Worker with the production branch set to `main`, an empty build command, and `npx @vinext/cloudflare deploy` as its deploy command. Do not repoint the existing `madsi-inference` Worker or its build configuration to the frontend application.
 
+## Separate the frontend from the inference Worker build
+
+The frontend release pipeline is managed by the repository's guarded GitHub Actions workflows. A legacy Cloudflare Workers Builds connection had been watching this frontend repository while targeting the separate `madsi-inference` service and running `wrangler preview`. Its branch-only build configurations were removed. This removes the accidental frontend-to-inference build path; it does not delete, redeploy, or change the active `madsi-inference` Worker.
+
+Do not reconnect the frontend repository to the `madsi-inference` Worker build service. The frontend is deployed as `mad-ai-frontend`; inference remains a separate service binding.
+
 ## Guarded Cloudflare production release
 
 The repository includes `.github/workflows/madsi-cloudflare-production.yml`. It is a manual `workflow_dispatch` release that refuses to run from any ref other than `main`. It runs typecheck and regression tests, then uses the native Vinext command `npx @vinext/cloudflare deploy` to deploy the existing Next.js app as the `mad-ai-frontend` Worker.
