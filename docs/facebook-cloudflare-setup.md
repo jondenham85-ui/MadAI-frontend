@@ -159,7 +159,7 @@ Cloudflare documents Previews as separate environments with their own settings a
 
 The repository includes `.github/workflows/madsi-neon-pr-branches.yml`.
 For pull requests opened, reopened, or updated within this repository, it
-creates an isolated Neon branch named `preview/pr-<number>-<branch>`.
+creates an isolated Neon branch named `preview/pr-<number>`.
 The branch is configured to expire after 14 days and is explicitly deleted
 when the pull request closes. Pull requests originating from forks are
 skipped so repository Neon credentials are never exposed to fork workflows.
